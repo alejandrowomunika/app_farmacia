@@ -167,10 +167,10 @@ class _TiendaPageState extends State<TiendaPage> {
                               'id': cat['id'],
                               'label': name,
                               'icon': Icons.category,
-                              'bg': Colors.white, // fondo blanco
+                              'bg': Colors.white,
                               'color': Colors.black,
-                              'imageJpg': cat['imageJpg'],  
-                              'imagePng': cat['imagePng'],
+                              'imageJpg': cat['imageJpg'],  // ← añadir esto
+                              'imagePng': cat['imagePng'],  // ← y esto
                             }),
                           ),
                         );
@@ -197,7 +197,7 @@ class _TiendaPageState extends State<TiendaPage> {
                             child: Center(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Container(
+                                child: SizedBox(
                                   width: 50,
                                   height: 40,
                                   child: (cat['imageJpg'] != null &&

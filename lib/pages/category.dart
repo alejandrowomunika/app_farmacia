@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'producto.dart';
 
 class CategoryPage extends StatefulWidget {
   final Map<String, dynamic> category;
@@ -20,34 +23,98 @@ class _CategoryPageState extends State<CategoryPage> {
   String _searchText = '';
   final String _apiKey = 'CGVBYEAKW3KG46ZY4JQWT8Q8433F6YBS';
   final String _baseUrl = 'https://www.farmaciaguerrerozieza.com/api';
+  final Map<String, Uint8List?> _imageBytesCache = {};
+
+  // límite máximo de productos a mostrar
+  final int _maxProducts = 100;
 
   /// 🔁 Función recursiva para obtener todos los IDs de subcategorías
   Future<List<String>> _getAllSubcategoryIds(String parentId) async {
-    final url =
-        '$_baseUrl/categories?ws_key=$_apiKey&output_format=JSON&display=[id,id_parent]&filter[id_parent]=$parentId';
-    final resp = await http.get(Uri.parse(url));
+    final List<String> result = [];
+    List<String> currentLevel = [parentId];
 
-    if (resp.statusCode != 200) return [];
+    // no incluir el parentId en el resultado (la llamada que use esta función ya añade el id raíz)
+    while (currentLevel.isNotEmpty) {
+      // construir filtro para pedir hijos de todos los ids del nivel en una sola petición
+      final filter = '[${currentLevel.join('|')}]';
+      final url =
+          '$_baseUrl/categories?ws_key=$_apiKey&output_format=JSON&display=[id,id_parent]&filter[id_parent]=$filter';
 
-    final data = json.decode(resp.body);
-    if (data is! Map || data['categories'] == null) return [];
+      try {
+        final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+        if (!mounted || resp.statusCode != 200) break;
 
-    final List categories = data['categories'];
-    List<String> ids = [];
+        final data = json.decode(resp.body);
+        List<dynamic> rawItems = [];
 
-    for (final cat in categories) {
-      final String id = cat['id'].toString();
-      ids.add(id);
+        if (data is Map<String, dynamic>) {
+          if (data.containsKey('categories')) {
+            final c = data['categories'];
+            if (c is Map && c.containsKey('category')) {
+              rawItems = (c['category'] as List<dynamic>?) ?? [];
+            } else if (c is List) {
+              rawItems = c;
+            }
+          } else if (data.containsKey('category')) {
+            rawItems = (data['category'] as List<dynamic>?) ?? [];
+          } else {
+            data.forEach((k, v) {
+              if (rawItems.isEmpty && v is List) rawItems = v;
+            });
+          }
+        }
 
-      // 👇 Recursivo: obtener subcategorías de esta subcategoría
-      final subIds = await _getAllSubcategoryIds(id);
-      ids.addAll(subIds);
+        if (rawItems.isEmpty) break;
+
+        final List<String> nextLevel = [];
+        for (final it in rawItems) {
+          if (it is Map<String, dynamic>) {
+            final id = (it['id'] ?? it['id_category'] ?? it['category_id'])?.toString();
+            if (id != null && id.isNotEmpty) {
+              // añadir al resultado y al siguiente nivel
+              result.add(id);
+              nextLevel.add(id);
+            }
+          }
+        }
+
+        // avanzar al siguiente nivel
+        currentLevel = nextLevel;
+      } catch (e) {
+        // en caso de error de red salimos para no bloquear la UI
+        print('getAllSubcategoryIds error: $e');
+        break;
+      }
     }
 
-    return ids;
+    // dedupe por si acaso
+    return result.toSet().toList();
+  }
+
+  /// Descargar bytes de imagen (igual que main.dart)
+  Future<Uint8List?> _fetchImageBytes(String url) async {
+    if (url.isEmpty) return null;
+    if (_imageBytesCache.containsKey(url)) return _imageBytesCache[url];
+
+    try {
+      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
+        _imageBytesCache[url] = resp.bodyBytes;
+        return resp.bodyBytes;
+      } else {
+        print('Image fetch failed: status=${resp.statusCode} url=$url');
+        _imageBytesCache[url] = null;
+        return null;
+      }
+    } catch (e) {
+      print('Image fetch error: $e url=$url');
+      _imageBytesCache[url] = null;
+      return null;
+    }
   }
 
   Future<void> _fetchProducts() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = false;
@@ -59,6 +126,7 @@ class _CategoryPageState extends State<CategoryPage> {
       // 1️⃣ Obtener todas las subcategorías (recursivamente)
       List<String> allIds = [idCat];
       final subIds = await _getAllSubcategoryIds(idCat);
+      if (!mounted) return;
       allIds.addAll(subIds);
 
       // Quitar duplicados
@@ -71,6 +139,7 @@ class _CategoryPageState extends State<CategoryPage> {
           '$_baseUrl/products?ws_key=$_apiKey&output_format=JSON&display=[id,name,price,id_category_default,id_default_image]&filter[id_category_default]=$filter&filter[active]=1';
 
       final resp = await http.get(Uri.parse(url));
+      if (!mounted) return;
       if (resp.statusCode != 200) throw Exception('Error al cargar productos');
 
       final data = json.decode(resp.body);
@@ -78,24 +147,47 @@ class _CategoryPageState extends State<CategoryPage> {
 
       if (items == null) throw Exception('Sin productos');
 
+      // Construye la URL correcta a partir del ID de la imagen
+      String buildPrestashopImageUrl(String imgId) {
+        if (imgId.isEmpty) return '';
+
+        final digits = imgId.split('');
+        final path = digits.join('/');
+        return 'https://www.farmaciaguerrerozieza.com/img/p/$path/$imgId-home_default.jpg';
+      }
+
       final List<Map<String, dynamic>> products = items.map((it) {
         final pid = it['id']?.toString() ?? '';
         final name = it['name']?.toString() ?? 'Producto';
         final price = it['price']?.toString() ?? '';
         final imgId = it['id_default_image']?.toString() ?? '';
-        final imgUrl = imgId.isNotEmpty
-            ? 'https://www.farmaciaguerrerozieza.com/img/p/$imgId.jpg'
-            : '';
-        return {'id': pid, 'name': name, 'price': price, 'image': imgUrl};
-      }).toList();
 
+
+        // Imagen correcta
+        final imgUrl = buildPrestashopImageUrl(imgId);
+
+        return {
+          'id': pid,
+          'name': name,
+          'price': price,
+          'image': imgUrl,
+        };
+      }).toList();
+      
+      // aplicar límite máximo
+      final limited = products.length > _maxProducts ? products.sublist(0, _maxProducts) : products;
+      
+
+      if (!mounted) return;
       setState(() {
-        _products = products;
-        _filteredProducts = products; // Inicialmente muestra todos
+        _products = limited;
+        _filteredProducts = List<Map<String, dynamic>>.from(limited); // Inicialmente muestra todos
         _loading = false;
+        _visibleCount = min(8, _filteredProducts.length);
       });
     } catch (e) {
       print('❌ Error: $e');
+      if (!mounted) return;
       setState(() {
         _error = true;
         _loading = false;
@@ -103,14 +195,23 @@ class _CategoryPageState extends State<CategoryPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _imageBytesCache.clear();
+    super.dispose();
+  }
+
   void _filterProducts(String query) {
+    final filtered = _products
+        .where((p) => p['name'].toString().toLowerCase().contains(query.toLowerCase()))
+        .toList();
+
+    final limitedFiltered = filtered.length > _maxProducts ? filtered.sublist(0, _maxProducts) : filtered;
+
     setState(() {
       _searchText = query;
-      _filteredProducts = _products
-          .where((p) =>
-              p['name'].toString().toLowerCase().contains(query.toLowerCase()))
-          .toList();
-      _visibleCount = 8; // Reiniciamos el contador al buscar
+      _filteredProducts = limitedFiltered;
+      _visibleCount = min(8, _filteredProducts.length); // reiniciar y capear
     });
   }
 
@@ -121,21 +222,55 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   Widget _buildIcon(BuildContext context) {
-    final image = widget.category['image'] as String?;
-    if (image != null && image.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(image, width: 64, height: 64, fit: BoxFit.cover),
+    final imageJpg = (widget.category['imageJpg'] ?? '').toString();
+    final imagePng = (widget.category['imagePng'] ?? '').toString();
+    final image = imageJpg.isNotEmpty ? imageJpg : imagePng;
+
+    if (image.isEmpty) {
+      return Container(
+        width: 64,
+        height: 64,
+        decoration: BoxDecoration(
+          color: Colors.green.shade100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.category, color: Colors.green, size: 32),
       );
     }
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: Colors.green.shade100,
-        borderRadius: BorderRadius.circular(12),
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: FutureBuilder<Uint8List?>(
+        future: _fetchImageBytes(image),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return Container(
+              width: 64,
+              height: 64,
+              color: Colors.grey.shade100,
+              alignment: Alignment.center,
+              child: const CircularProgressIndicator(strokeWidth: 2),
+            );
+          }
+          final bytes = snap.data;
+          if (bytes == null || bytes.isEmpty) {
+            return Container(
+              width: 64,
+              height: 64,
+              color: Colors.grey.shade200,
+              alignment: Alignment.center,
+              child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
+            );
+          }
+          return Image.memory(
+            bytes,
+            width: 64,
+            height: 64,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          );
+        },
       ),
-      child: const Icon(Icons.category, color: Colors.green, size: 32),
     );
   }
 
@@ -204,56 +339,92 @@ class _CategoryPageState extends State<CategoryPage> {
                                 ),
                                 itemBuilder: (context, index) {
                                   final p = _filteredProducts[index];
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Colors.black12,
-                                          blurRadius: 6,
-                                          offset: Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: p['image'] != ''
-                                              ? Image.network(
-                                                  p['image'],
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      const Icon(Icons.photo),
-                                                )
-                                              : const Icon(Icons.photo),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Column(
-                                            children: [
-                                              Text(
-                                                p['name'] ?? 'Producto',
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '${p['price']} €',
-                                                style: const TextStyle(
-                                                  color: Colors.green,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
+                                  return InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ProductPage(
+                                            product: {
+                                              'id': p['id'],
+                                              'name': p['name'],
+                                              'price': p['price'],
+                                              'image': p['image'],
+                                            },
                                           ),
                                         ),
-                                      ],
+                                      );
+                                    },
+                                    child: Container(
+                                       decoration: BoxDecoration(
+                                         color: Colors.white,
+                                         borderRadius: BorderRadius.circular(12),
+                                         boxShadow: const [
+                                           BoxShadow(
+                                             color: Colors.black12,
+                                             blurRadius: 6,
+                                             offset: Offset(0, 3),
+                                           ),
+                                         ],
+                                       ),
+                                       child: Column(
+                                         mainAxisAlignment:
+                                             MainAxisAlignment.spaceBetween,
+                                         children: [
+                                           Expanded(
+                                             child: p['image'] != ''
+                                                 ? FutureBuilder<Uint8List?>(
+                                                     future: _fetchImageBytes(p['image']),
+                                                     builder: (context, snap) {
+                                                       if (snap.connectionState == ConnectionState.waiting) {
+                                                         return Container(
+                                                           color: Colors.grey.shade100,
+                                                           alignment: Alignment.center,
+                                                           child: const CircularProgressIndicator(strokeWidth: 2),
+                                                         );
+                                                       }
+                                                       final bytes = snap.data;
+                                                       if (bytes == null || bytes.isEmpty) {
+                                                         return Container(
+                                                           color: Colors.grey.shade200,
+                                                           alignment: Alignment.center,
+                                                           child: const Icon(Icons.broken_image, color: Colors.grey),
+                                                         );
+                                                       }
+                                                       return Image.memory(
+                                                         bytes,
+                                                         fit: BoxFit.cover,
+                                                         gaplessPlayback: true,
+                                                       );
+                                                     },
+                                                   )
+                                                 : const Icon(Icons.photo),
+                                           ),
+                                           Padding(
+                                             padding: const EdgeInsets.all(8.0),
+                                             child: Column(
+                                               children: [
+                                                 Text(
+                                                   p['name'] ?? 'Producto',
+                                                   maxLines: 2,
+                                                   overflow: TextOverflow.ellipsis,
+                                                 ),
+                                                 const SizedBox(height: 4),
+                                                 Text(
+                                                   '${p['price']} €',
+                                                   style: const TextStyle(
+                                                     color: Colors.green,
+                                                     fontWeight: FontWeight.bold,
+                                                   ),
+                                                 ),
+                                               ],
+                                             ),
+                                           ),
+                                         ],
+                                       ),
                                     ),
                                   );
-                                },
+                                 },
                               ),
                       ),
                       if (_visibleCount < _filteredProducts.length)

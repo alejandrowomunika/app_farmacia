@@ -18,6 +18,7 @@ const String apiKey = 'CGVBYEAKW3KG46ZY4JQWT8Q8433F6YBS';
 
 void main() {
   runApp(const MainApp());
+  
 }
 
 // APP ROOT
@@ -29,6 +30,7 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       title: 'Farmacia App',
       initialRoute: '/',
+      debugShowCheckedModeBanner: false,
       routes: {
         '/': (context) => const ProductsScreen(),
         '/tienda': (context) => const TiendaPage(),
@@ -262,7 +264,7 @@ Future<List<String>> loadSliderImages() async {
 
                 // CARRUSEL INFINITO
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 0),
+                  padding: const EdgeInsets.only(bottom: 0), 
                   child: SizedBox(
                     height: 92,
                     child: InfiniteCarousel(
@@ -270,7 +272,7 @@ Future<List<String>> loadSliderImages() async {
                           .map(
                             (info) => InkWell(
                               onTap: () =>
-                                  Navigator.pushNamed(context, '/products'),
+                                  Navigator.pushNamed(context, '/tienda'),
                               child: Container(
                                 margin: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                                 decoration: BoxDecoration(
