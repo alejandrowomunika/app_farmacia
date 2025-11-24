@@ -40,6 +40,21 @@ class AppColors {
   // ✅ Elegimos un "primary" basado en la paleta
   static const Color primary = green500;
   static const Color secondary = purple500;
+  
+  // ------------------------
+  // ✅ Nuevo: GRADIENTE
+  // ------------------------
+  // Usaremos un degradado que va del purple500 (secundario) al purple100
+  static const LinearGradient headerGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      purple500, // Color inicial (más oscuro, arriba)
+      purple300, 
+      purple100, // Color final (más claro, abajo)
+    ],
+    stops: [0.0, 0.4, 1.0],
+  );
 }
 
 /// ✅ TIPOGRAFÍA Y ESTILOS
@@ -76,6 +91,8 @@ class AppText {
     color: AppColors.white,
     fontFamily: 'Mulish',
   );
+
+  
 }
 
 /// ✅ SOMBRAS Y RADIOS

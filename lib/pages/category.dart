@@ -344,14 +344,7 @@ class _CategoryPageState extends State<CategoryPage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => ProductPage(
-                                            product: {
-                                              'id': p['id'],
-                                              'name': p['name'],
-                                              'price': p['price'],
-                                              'image': p['image'],
-                                            },
-                                          ),
+                                          builder: (_) => ProductPage(id: int.parse(p['id'])),
                                         ),
                                       );
                                     },

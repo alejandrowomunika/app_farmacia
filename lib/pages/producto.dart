@@ -1,171 +1,297 @@
-import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
+import '../data/cart.dart';
 
 class ProductPage extends StatefulWidget {
-  final Map<String, dynamic> product; // espera {id,name,price,image}
+  final int id;
 
-  const ProductPage({super.key, required this.product});
+  const ProductPage({super.key, required this.id});
 
   @override
   State<ProductPage> createState() => _ProductPageState();
 }
 
 class _ProductPageState extends State<ProductPage> {
-  final Map<String, Uint8List?> _imageCache = {};
+  Map<String, dynamic>? product;
+  Map<String, dynamic>? stockData;
+
   bool _loading = true;
-  String _error = '';
-  // ------------------ ADICIONES ------------------
-    int selectedIndex = 0;
+  String _errorMessage = '';
+  int selectedIndex = 0;
 
-    void onFooterTap(int index) {
-      setState(() => selectedIndex = index);
+  final String apiKey = "CGVBYEAKW3KG46ZY4JQWT8Q8433F6YBS";
 
-      if (index == 0) {
-        Navigator.pushReplacementNamed(context, '/');
-      } else if (index == 1) {
-        Navigator.pushReplacementNamed(context, '/tienda');
-      } else if (index == 2) {
-        Navigator.pushReplacementNamed(context, '/chat');
-      } else if (index == 3) {
-        Navigator.pushReplacementNamed(context, '/user');
-      }
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadProduct();
+  }
 
-    @override
-    void initState() {
-      super.initState();
-      _loading = false;
-    }
+  Future<void> _loadProduct() async {
+    await _getProduct();
+    await _getStock();
+    setState(() {});
+  }
 
-  Future<Uint8List?> _fetchImageBytes(String url) async {
-    if (url.isEmpty) return null;
-    if (_imageCache.containsKey(url)) return _imageCache[url];
+  Future<void> _getProduct() async {
+    final url = Uri.parse(
+      "https://www.farmaciaguerrerozieza.com/api/products/${widget.id}?ws_key=$apiKey&output_format=JSON",
+    );
+
     try {
-      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
-      if (!mounted) return null;
-      if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
-        _imageCache[url] = resp.bodyBytes;
-        return resp.bodyBytes;
+      final res = await http.get(url);
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        product = decoded["product"];
       } else {
-        _imageCache[url] = null;
-        return null;
+        _errorMessage = "Error del servidor (${res.statusCode})";
       }
     } catch (e) {
-      _imageCache[url] = null;
-      return null;
+      _errorMessage = "Error de conexión: $e";
     }
   }
 
-  @override
-  void dispose() {
-    _imageCache.clear();
-    super.dispose();
+  Future<void> _getStock() async {
+    final url = Uri.parse(
+        "https://www.farmaciaguerrerozieza.com/api/stock_availables?ws_key=$apiKey&output_format=JSON&display=full&filter[id_product]=${widget.id}");
+
+    try {
+      final res = await http.get(url);
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+
+        if (data["stock_availables"] != null &&
+            data["stock_availables"].isNotEmpty) {
+          stockData = data["stock_availables"][0];
+        }
+      }
+    } catch (e) {
+      print("Error stock: $e");
+    }
+
+    setState(() => _loading = false);
   }
 
+  // -------------------------------
+  // Obtener imagen
+  // -------------------------------
+  String _getImageUrl() {
+    if (product == null) return "";
+
+    final String idImage = (product!["id_default_image"] ?? "").toString();
+    if (idImage.isEmpty) return "";
+
+    return "https://www.farmaciaguerrerozieza.com/api/images/products/${product!["id"]}/$idImage?ws_key=$apiKey";
+  }
+
+  // -------------------------------
+  // RESTAR STOCK (sin cambios)
+  // -------------------------------
+  Future<void> _restarStock() async {
+    if (stockData == null || product == null) return;
+
+    final stockId = stockData!["id"]?.toString();
+    if (stockId == null) return;
+
+    final idProduct = stockData!["id_product"]?.toString() ?? product!["id"].toString();
+    final idProductAttribute = stockData!["id_product_attribute"]?.toString() ?? "0";
+    final idShop = stockData!["id_shop"]?.toString() ?? "1";
+    final idShopGroup = stockData!["id_shop_group"]?.toString() ?? "0";
+    final dependsOnStock = stockData!["depends_on_stock"]?.toString() ?? "0";
+    final outOfStock = stockData!["out_of_stock"]?.toString() ?? "2";
+    final location = stockData!["location"]?.toString() ?? "";
+
+    int quantity = int.tryParse(stockData!["quantity"]?.toString() ?? "0") ?? 0;
+
+    if (quantity <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No queda stock.")),
+      );
+      return;
+    }
+
+    final newQuantity = quantity - 1;
+
+    final xmlBody = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<prestashop xmlns:xlink="http://www.w3.org/1999/xlink">
+  <stock_available>
+    <id><![CDATA[$stockId]]></id>
+    <id_product><![CDATA[$idProduct]]></id_product>
+    <id_product_attribute><![CDATA[$idProductAttribute]]></id_product_attribute>
+    <id_shop><![CDATA[$idShop]]></id_shop>
+    <id_shop_group><![CDATA[$idShopGroup]]></id_shop_group>
+    <quantity><![CDATA[$newQuantity]]></quantity>
+    <depends_on_stock><![CDATA[$dependsOnStock]]></depends_on_stock>
+    <out_of_stock><![CDATA[$outOfStock]]></out_of_stock>
+    <location><![CDATA[$location]]></location>
+  </stock_available>
+</prestashop>
+''';
+
+    final url = Uri.parse(
+      "https://www.farmaciaguerrerozieza.com/api/stock_availables/$stockId?ws_key=$apiKey",
+    );
+
+    try {
+      final res = await http.put(url,
+          headers: {
+            "Content-Type": "application/xml",
+            "Accept": "application/xml",
+          },
+          body: xmlBody);
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        setState(() {
+          stockData!["quantity"] = newQuantity.toString();
+        });
+      }
+    } catch (e) {
+      print("PUT stock error: $e");
+    }
+  }
+
+  // -------------------------------
+  // UI PRODUCTO
+  // -------------------------------
   @override
   Widget build(BuildContext context) {
-    final prod = widget.product;
-    final name = (prod['name'] ?? prod['label'] ?? 'Producto').toString();
-    final price = (prod['price'] ?? '').toString();
-    final imageUrl = (prod['image'] ?? prod['imageUrl'] ?? '').toString();
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Header: usar el mismo que en main.dart
-           const AppHeader(),
-
-            // Contenido principal
+            const AppHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Imagen principal
-                    AspectRatio(
-                      aspectRatio: 1.2,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: imageUrl.isEmpty
-                            ? Container(
-                                color: Colors.grey.shade100,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.photo, size: 48, color: Colors.grey),
-                              )
-                            : FutureBuilder<Uint8List?>(
-                                future: _fetchImageBytes(imageUrl),
-                                builder: (context, snap) {
-                                  if (snap.connectionState == ConnectionState.waiting) {
-                                    return Container(
-                                      color: Colors.grey.shade100,
-                                      alignment: Alignment.center,
-                                      child: const CircularProgressIndicator(),
-                                    );
-                                  }
-                                  final bytes = snap.data;
-                                  if (bytes == null || bytes.isEmpty) {
-                                    return Container(
-                                      color: Colors.grey.shade200,
-                                      alignment: Alignment.center,
-                                      child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                                    );
-                                  }
-                                  return Image.memory(
-                                    bytes,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    gaplessPlayback: true,
-                                  );
-                                },
-                              ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Nombre y precio
-                    Text(
-                      name,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      price.isNotEmpty ? '$price €' : 'Precio no disponible',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.green),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // Información/acciones básicas (añade si quieres más)
-                    ElevatedButton(
-                      onPressed: () {
-                        // ejemplo: añadir al carrito (implementa según tu app)
-                      },
-                      child: const Text('AÑADIR AL CARRITO'),
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                    ),
-                  ],
-                ),
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : product == null
+                      ? const Center(child: Text("No se encontró el producto"))
+                      : _buildProductContent(),
             ),
-
-           
           ],
         ),
       ),
-      // footer en bottomNavigationBar para que siempre quede accesible
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+      ),
+    );
+  }
+
+  void onFooterTap(int index) {
+    setState(() => selectedIndex = index);
+
+    if (index == 0) Navigator.pushReplacementNamed(context, '/');
+    if (index == 1) Navigator.pushReplacementNamed(context, '/tienda');
+    if (index == 2) Navigator.pushReplacementNamed(context, '/chat');
+    if (index == 3) Navigator.pushReplacementNamed(context, '/carrito');
+  }
+
+  // -------------------------------
+  // LÓGICA IVA
+  // -------------------------------
+  double _getTaxRateFromGroup() {
+    final taxGroupId = product?["id_tax_rules_group"]?.toString() ?? "0";
+
+    switch (taxGroupId) {
+      case "1":
+        return 4;
+      case "2":
+        return 10;
+      case "3":
+        return 21;
+      default:
+        return 0;
+    }
+  }
+
+  // -------------------------------
+  // UI
+  // -------------------------------
+  Widget _buildProductContent() {
+    final id = product!["id"];
+    final name = product!["name"];
+    final priceTaxExcl = double.tryParse(product?["price"] ?? "0") ?? 0;
+
+    final taxRate = _getTaxRateFromGroup();
+    final priceTaxIncl = priceTaxExcl * (1 + taxRate / 100);
+
+    final stock = stockData?["quantity"] ?? "0";
+    final imageUrl = _getImageUrl();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.1,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: imageUrl.isEmpty
+                  ? Container(color: Colors.grey.shade200)
+                  : Image.network(imageUrl, fit: BoxFit.cover),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Text(id.toString(),
+              style: const TextStyle(fontSize: 16, color: Colors.grey)),
+          Text(name,
+              style:
+                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+
+          const SizedBox(height: 8),
+
+          Text(
+            "${priceTaxIncl.toStringAsFixed(2)} €",
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+          ),
+
+          Text("IVA aplicado: $taxRate%"),
+
+          const SizedBox(height: 8),
+
+          Text("Stock: $stock",
+              style: const TextStyle(fontSize: 18, color: Colors.blue)),
+
+          const SizedBox(height: 20),
+
+          ElevatedButton(
+            onPressed: () async {
+              await _restarStock();
+
+              Cart.addItem(
+                CartItem(
+                  id: id,
+                  name: name,
+                  priceTaxExcl: priceTaxExcl,
+                  priceTaxIncl: priceTaxIncl,
+                  taxRate: taxRate,
+                  quantity: 1,
+                  image: imageUrl,
+                ),
+              );
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Producto añadido al carrito")),
+              );
+            },
+            child: const Text("Añadir al carrito"),
+          ),
+        ],
       ),
     );
   }

@@ -41,7 +41,7 @@ class _TiendaPageState extends State<TiendaPage> {
     } else if (index == 2) {
       Navigator.pushReplacementNamed(context, '/chat');
     } else if (index == 3) {
-      Navigator.pushReplacementNamed(context, '/user');
+      Navigator.pushReplacementNamed(context, '/carrito');
     }
   }
 
@@ -198,32 +198,32 @@ class _TiendaPageState extends State<TiendaPage> {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: SizedBox(
-                                  width: 50,
-                                  height: 40,
+                                  width: 32,  // <- reducido de 50
+                                  height: 32, // <- reducido de 40
                                   child: (cat['imageJpg'] != null &&
                                           cat['imageJpg'].toString().isNotEmpty)
                                       ? Image.network(
                                           cat['imageJpg'],
                                           fit: BoxFit.cover,
-                                          width: 86,
-                                          height: 86,
+                                          width: 32,   // <- reducido de 46
+                                          height: 32,  // <- reducido de 46
                                           errorBuilder: (context, error, stackTrace) {
                                             final png = cat['imagePng'] ?? '';
                                             if (png.isNotEmpty) {
                                               return Image.network(
                                                 png,
                                                 fit: BoxFit.cover,
-                                                width: 86,
-                                                height: 86,
+                                                width: 32,   // <- reducido de 46
+                                                height: 32,  // <- reducido de 46
                                                 errorBuilder: (c, e, s) =>
-                                                    const Icon(Icons.photo, size: 36, color: Colors.black87),
+                                                    const Icon(Icons.photo, size: 20, color: Colors.black87), // <- reducido de 36
                                               );
                                             }
                                             return const Icon(Icons.photo,
-                                                size: 36, color: Colors.black87);
+                                                size: 20, color: Colors.black87); // <- reducido de 26
                                           },
                                         )
-                                      : const Icon(Icons.photo, size: 36, color: Colors.black87),
+                                      : const Icon(Icons.photo, size: 20, color: Colors.black87), // <- reducido de 36
                                 ),
                               ),
                             ),

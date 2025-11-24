@@ -25,10 +25,7 @@ class _UserPageState extends State<UserPage> {
     }
   }
 
-  // ✅ FUNCIÓN PARA "RECARGAR"
-  Future<void> reloadPage() async {
-    setState(() {});
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -39,31 +36,7 @@ class _UserPageState extends State<UserPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              "Esta es la página de Usuario",
-              style: TextStyle(fontSize: 23),
-            ),
-
-            const SizedBox(height: 25),
-
-            // ✅ BOTÓN DE RECARGAR
-            ElevatedButton.icon(
-              onPressed: reloadPage,
-              icon: const Icon(Icons.refresh, size: 28),
-              label: const Text(
-                "Recargar",
-                style: TextStyle(fontSize: 18),
-              ),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+            
           ],
         ),
       ),

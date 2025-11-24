@@ -13,25 +13,25 @@ class AppFooter extends StatelessWidget {
       currentIndex: currentIndex.clamp(0, 3),
       onTap: onTap,
       type: BottomNavigationBarType.fixed,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.white, 
       selectedItemColor: AppColors.purple600,
       unselectedItemColor: Colors.grey,
       items: const [
         BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
+          icon: Icon(Icons.home),
           label: 'Inicio',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.list_alt),
+          icon: Icon(Icons.shopping_bag),
           label: 'Tienda',
         ),
          BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline),
+          icon: Icon(Icons.chat_bubble),
           label: 'Chat',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'Cuenta',
+          icon: Icon(Icons.shopping_cart),
+          label: 'Carrito',
         ),
       ],
     );

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:app_farmacia/pages/carrito.dart';
 import 'package:app_farmacia/pages/producto.dart';
+import 'package:app_farmacia/widgets/header2.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -43,8 +43,6 @@ class MainApp extends StatelessWidget {
                   as Map<String, dynamic>;
           return ProductPage(id: args['id']);
         },
-        "/carrito": (context) => const CarritoPage(),
-
       },
     );
   }
@@ -173,7 +171,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     } else if (index == 3) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const CarritoPage()),
+        MaterialPageRoute(builder: (_) => const UserPage()),
       );
     }
   }
@@ -375,17 +373,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color.fromARGB(255, 255, 0, 0),
 
       // body ahora es un CustomScrollView con slivers para permitir scroll vertical correcto
       body: CustomScrollView(
         slivers: [
+          // 1) Header grande que se va al hacer scroll
+          // Header combinado con cross-fade
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _FadeSwapHeaderDelegate(
+              backgroundColor: AppColors.background,
+              big: const AppHeader(),    // header grande
+              small: const AppHeader2(), // header secundario sticky
+              bigHeight: 30,            // altura del grande
+              smallHeight: 140,          // altura del sticky
+            ),
+          ),
           SliverToBoxAdapter(
             child: Column(
               children: [
-                const AppHeader(),
-                const SizedBox(height: 5),
-
                 // CARRUSEL INFINITO
                 Padding(
                   padding: const EdgeInsets.only(bottom: 0),
@@ -1316,5 +1323,74 @@ class _ProductCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _FadeSwapHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _FadeSwapHeaderDelegate({
+    required this.big,
+    required this.small,
+    required this.bigHeight,
+    required this.smallHeight,
+    required this.backgroundColor,
+  });
+
+  final Widget big;           // AppHeader
+  final Widget small;         // AppHeader2
+  final double bigHeight;     // 120
+  final double smallHeight;   // 100
+  final Color backgroundColor;
+
+  @override
+  double get minExtent => smallHeight;
+
+  @override
+  double get maxExtent => bigHeight + smallHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    // 0 => expandido (solo grande), 1 => colapsado (solo sticky)
+    final double t = (shrinkOffset / bigHeight).clamp(0.0, 1.0);
+    final double currentHeight = maxExtent - shrinkOffset; // de 220 a 100
+
+    return ColoredBox(
+      color: backgroundColor,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Header grande: ocupa todo el alto disponible y se desvanece
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: currentHeight,
+            child: Opacity(
+              opacity: 1 - t,
+              child: big,
+            ),
+          ),
+          // Header pequeño: aparece pegado abajo y se queda sticky
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              height: smallHeight,
+              child: Opacity(
+                opacity: t,
+                child: small,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _FadeSwapHeaderDelegate old) {
+    return big != old.big ||
+           small != old.small ||
+           bigHeight != old.bigHeight ||
+           smallHeight != old.smallHeight ||
+           backgroundColor != old.backgroundColor;
   }
 }

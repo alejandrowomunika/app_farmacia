@@ -21,7 +21,7 @@ class _ChatState extends State<Chat> {
     } else if (index == 2) {
       // ya estás aquí 
     } else if (index == 3) {
-      Navigator.pushReplacementNamed(context, '/user');
+      Navigator.pushReplacementNamed(context, '/carrito');
     }
   }
 
