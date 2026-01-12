@@ -1,95 +1,152 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'menu_drawer.dart';
+import 'search_drawer.dart';
 
 class AppHeader extends StatelessWidget {
   const AppHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-        decoration: const BoxDecoration(
-          color: AppColors.white, 
-        ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ═══════════════════════════════════════════════
+          // BOTÓN MENÚ HAMBURGUESA (IZQUIERDA)
+          // ═══════════════════════════════════════════════
+          _HeaderIconButton(
+            icon: Icons.menu_rounded,
+            onTap: () => _openMenuDrawer(context),
+          ),
 
-        child: Column(
-
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // FILA SUPERIOR → Logo + Nombre centrados juntos
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,  
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Logo farmacia
-                GestureDetector(
-                  
-                  onTap: () => Navigator.pushNamed(context, '/'),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxHeight: 30,
-                    ),
-                    child: Image.asset(
-                      "assets/logcompleto.png",
-                      fit: BoxFit.fitHeight,
-                      alignment: Alignment.centerLeft,
-                    ),
-                  ),
-                )
-              ],
+          // ═══════════════════════════════════════════════
+          // LOGO CENTRAL
+          // ═══════════════════════════════════════════════
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/'),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxHeight: 32,
+                maxWidth: 160,
+              ),
+              child: Image.asset(
+                "assets/logcompleto.png",
+                fit: BoxFit.contain,
+              ),
             ),
-            const SizedBox(height: 6), // ESPACIO entre filas
+          ),
 
-            // BARRA DE BÚSQUEDA
-            Container(
-              width:270, 
-              height: 30,
-              margin: const EdgeInsets.only(bottom: 4), 
-              decoration: BoxDecoration(
-                color: AppColors.white.withOpacity(0.82), 
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: AppColors.purple500,
-                  width: 1.0, 
-                ),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 8), 
+          // ═══════════════════════════════════════════════
+          // BOTÓN LUPA BUSCADOR (DERECHA)
+          // ═══════════════════════════════════════════════
+          _HeaderIconButton(
+            icon: Icons.search_rounded,
+            onTap: () => _openSearchDrawer(context),
+          ),
+        ],
+      ),
+    );
+  }
 
-                  Icon(
-                    Icons.search,
-                    size: 18, 
-                    color: AppColors.purple500, 
-                  ),
+  // ═══════════════════════════════════════════════════════════
+  // ABRIR MENÚ LATERAL IZQUIERDO
+  // ═══════════════════════════════════════════════════════════
+  void _openMenuDrawer(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.black54,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return const MenuDrawer();
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(-1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
 
-                  const SizedBox(width: 6), 
+  // ═══════════════════════════════════════════════════════════
+  // ABRIR BUSCADOR LATERAL DERECHO
+  // ═══════════════════════════════════════════════════════════
+  void _openSearchDrawer(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.black54,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return const SearchDrawer();
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+}
 
-                  Expanded(
-                    child: TextField(
-                      style: AppText.small.copyWith(
-                        fontSize: 12, 
-                        color: Colors.black87, 
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: "Buscar...", 
-                        border: InputBorder.none, 
-                        isDense: true, 
-                        contentPadding: EdgeInsets.symmetric(vertical: 2), 
-                      ),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (q) {
-                        print("Buscando: $q");
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            )
-            
-          ],
+// ═══════════════════════════════════════════════════════════
+// WIDGET: BOTÓN DE ICONO DEL HEADER
+// ═══════════════════════════════════════════════════════════
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeaderIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color: AppColors.purple600,
+          size: 22,
         ),
       ),
     );

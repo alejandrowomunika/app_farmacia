@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-class AppHeader2 extends StatelessWidget {
-  const AppHeader2({super.key});
+class AppHeader extends StatelessWidget {
+  const AppHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +48,7 @@ class AppHeader2 extends StatelessWidget {
               height: 30,
               margin: const EdgeInsets.only(bottom: 4), 
               decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 7, 0, 0).withOpacity(0.82), 
+                color: AppColors.white.withOpacity(0.82), 
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: AppColors.purple500,
@@ -85,7 +85,6 @@ class AppHeader2 extends StatelessWidget {
                       },
                     ),
                   ),
-
                 ],
               ),
             )

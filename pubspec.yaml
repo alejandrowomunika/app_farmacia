@@ -1,7 +1,7 @@
 name: app_farmacia
-description: "A new Flutter project."
+description: "App de la Farmacia Guerrero Zieza"
 publish_to: 'none'
-version: 0.1.0
+version: 1.0.0+1
 
 environment:
   sdk: ^3.9.2
@@ -12,13 +12,24 @@ dependencies:
   cached_network_image: ^3.3.1
   http: ^1.5.0
   shared_preferences: ^2.2.2
+  url_launcher: ^6.2.4
+  xml: ^6.5.0
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_native_splash: ^2.3.10
 
 flutter:
   uses-material-design: true
   assets: 
     - assets/
+
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/logo.png
+  android: true
+  ios: true
