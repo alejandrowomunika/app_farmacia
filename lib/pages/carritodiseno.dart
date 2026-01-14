@@ -1,10 +1,10 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-// Asegúrate de que estas rutas sean correctas en tu proyecto
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
@@ -64,11 +64,7 @@ class _CarritoPageState extends State<CarritoPage> {
   Future<void> _loadAllStock() async {
     for (final item in Cart.items) {
       final stock = await _getAvailableStock(item.id);
-      if (mounted) {
-        setState(() {
-          _stockDisponible[item.id] = stock;
-        });
-      }
+      _stockDisponible[item.id] = stock;
     }
   }
 
@@ -101,21 +97,32 @@ class _CarritoPageState extends State<CarritoPage> {
   // NAVEGACIÓN FOOTER
   // ─────────────────────────────────────────────────────────
   void onFooterTap(int index) {
+
+    // Ocultar cualquier SnackBar activo antes de navegar
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     
     if (index == selectedIndex) return;
 
-    if (index == 0) {
-      Navigator.pushReplacementNamed(context, '/');
-    } else if (index == 1) {
-      Navigator.pushReplacementNamed(context, '/tienda');
-    } else if (index == 2) {
-      Navigator.pushReplacementNamed(context, '/chat');
+    setState(() => selectedIndex = index);
+
+    switch (index) {
+      case 0:
+        Navigator.pushReplacementNamed(context, '/');
+        break;
+      case 1:
+        Navigator.pushReplacementNamed(context, '/tienda');
+        break;
+      case 2:
+        Navigator.pushReplacementNamed(context, '/chat');
+        break;
+      case 3:
+        // Ya estás aquí
+        break;
     }
   }
 
   // ═══════════════════════════════════════════════════════════
-  // STOCK MANAGEMENT (Lógica original del Carrito 1)
+  // STOCK MANAGEMENT
   // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>?> _loadStockOfItem(int productId) async {
     final url = Uri.parse(
@@ -175,6 +182,7 @@ class _CarritoPageState extends State<CarritoPage> {
       );
       
       if (res.statusCode == 200 || res.statusCode == 201) {
+        // Actualizar stock local
         _stockDisponible[item.id] = newQuantity;
         return true;
       }
@@ -190,6 +198,7 @@ class _CarritoPageState extends State<CarritoPage> {
 
     final currentStock = int.tryParse(stock["quantity"].toString()) ?? 0;
     
+    // Verificar si hay stock suficiente
     if (currentStock < amount) {
       return false;
     }
@@ -225,6 +234,7 @@ class _CarritoPageState extends State<CarritoPage> {
       );
       
       if (res.statusCode == 200 || res.statusCode == 201) {
+        // Actualizar stock local
         _stockDisponible[item.id] = newQuantity;
         return true;
       }
@@ -238,12 +248,15 @@ class _CarritoPageState extends State<CarritoPage> {
   // ACCIONES DEL CARRITO
   // ═══════════════════════════════════════════════════════════
   
+  /// Incrementar cantidad de un item
   Future<void> _incrementItem(CartItem item) async {
+    // Evitar múltiples clics
     if (_processingItems.contains(item.id)) return;
     
     setState(() => _processingItems.add(item.id));
     
     try {
+      // Obtener stock actual desde la API
       final stockActual = await _getAvailableStock(item.id);
       
       if (stockActual <= 0) {
@@ -251,6 +264,7 @@ class _CarritoPageState extends State<CarritoPage> {
         return;
       }
       
+      // Intentar restar del stock
       final success = await _restarStockOfItem(item, 1);
       
       if (success) {
@@ -272,7 +286,9 @@ class _CarritoPageState extends State<CarritoPage> {
     }
   }
   
+  /// Decrementar cantidad de un item
   Future<void> _decrementItem(CartItem item) async {
+    // Evitar múltiples clics
     if (_processingItems.contains(item.id)) return;
     
     if (item.quantity <= 1) {
@@ -304,56 +320,57 @@ class _CarritoPageState extends State<CarritoPage> {
     }
   }
   
+  /// Eliminar un item del carrito
   Future<void> _removeItem(CartItem item) async {
     setState(() => _processingItems.add(item.id));
     
     try {
+      // Devolver todo el stock
       await _sumarStockOfItem(item, item.quantity);
+      
+      // Eliminar del carrito
       Cart.removeItem(item.id);
       await Cart.saveCart();
       
-      if (mounted) {
-        setState(() {
-          _stockDisponible.remove(item.id);
-          _processingItems.remove(item.id);
-        });
-        
-        _showSuccessSnackBar("Producto eliminado del carrito");
-      }
+      // Actualizar UI
+      setState(() {
+        _stockDisponible.remove(item.id);
+        _processingItems.remove(item.id);
+      });
+      
+      _showSuccessSnackBar("Producto eliminado del carrito");
     } catch (e) {
       debugPrint("Error eliminando: $e");
       _showErrorSnackBar("Error al eliminar producto");
-      if (mounted) {
-        setState(() => _processingItems.remove(item.id));
-      }
+      setState(() => _processingItems.remove(item.id));
     }
   }
   
+  /// Vaciar todo el carrito
   Future<void> _clearCart() async {
     setState(() => _isProcessing = true);
     
     try {
+      // Devolver stock de todos los items
       for (final item in Cart.items) {
         await _sumarStockOfItem(item, item.quantity);
       }
       
+      // Limpiar carrito
       Cart.clear();
       await Cart.saveCart();
       
-      if (mounted) {
-        setState(() {
-          _stockDisponible.clear();
-          _isProcessing = false;
-        });
-        
-        _showSuccessSnackBar("Carrito vaciado");
-      }
+      // Actualizar UI
+      setState(() {
+        _stockDisponible.clear();
+        _isProcessing = false;
+      });
+      
+      _showSuccessSnackBar("Carrito vaciado");
     } catch (e) {
       debugPrint("Error vaciando carrito: $e");
       _showErrorSnackBar("Error al vaciar el carrito");
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -397,7 +414,7 @@ class _CarritoPageState extends State<CarritoPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // FINALIZAR PEDIDO (MODIFICADO CON REDIRECCIÓN DEL CARRITO 2)
+  // FINALIZAR PEDIDO
   // ═══════════════════════════════════════════════════════════
   Future<void> _finalizarPedido() async {
     setState(() => _isProcessing = true);
@@ -409,10 +426,8 @@ class _CarritoPageState extends State<CarritoPage> {
         final idCart = result['id_cart'];
         final secureKey = result['secure_key'];
 
-        // --- AQUÍ ESTÁ EL CAMBIO CLAVE ---
-        // Usamos la URL del segundo código
         final url =
-            "https://www.farmaciaguerrerozieza.com/app-carrito?id_cart=$idCart&key=$secureKey";
+            "https://www.farmaciaguerrerozieza.com/carrito-app.php?id_cart=$idCart&key=$secureKey";
 
         debugPrint("Abriendo URL: $url");
 
@@ -427,9 +442,7 @@ class _CarritoPageState extends State<CarritoPage> {
       debugPrint("Error: $e");
       _showErrorSnackBar("Error al procesar el pedido");
     } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -475,14 +488,14 @@ class _CarritoPageState extends State<CarritoPage> {
             ),
             const SizedBox(width: 10),
             Text(
-              message,
+              "Carrito Vaciado",
               style: AppText.body.copyWith(
                 color: AppColors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
             ),
-            const Spacer(),
+            const Spacer(), // ← Empuja la X hacia la derecha
             GestureDetector(
               onTap: () {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();

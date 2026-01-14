@@ -44,7 +44,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
   final String _apiKey = 'CGVBYEAKW3KG46ZY4JQWT8Q8433F6YBS';
   final String _baseUrl = 'https://www.farmaciaguerrerozieza.com/api';
-  final int _maxProducts = 200;
+  final int _maxProducts = 700;
 
   int selectedIndex = 1;
 
@@ -327,7 +327,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
     setState(() {
       _filteredProducts = limited;
-      _visibleCount = min(8, _filteredProducts.length);
+      _visibleCount = min(16, _filteredProducts.length);
     });
   }
 
@@ -1116,7 +1116,7 @@ class _CategoryPageState extends State<CategoryPage> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: AppColors.green200,
-            width: 1.5,
+            width: 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -1131,7 +1131,7 @@ class _CategoryPageState extends State<CategoryPage> {
           child: InkWell(
             onTap: () {
               setState(() {
-                _visibleCount = min(_visibleCount + 8, _filteredProducts.length);
+                _visibleCount = min(_visibleCount + 16, _filteredProducts.length);
               });
             },
             borderRadius: BorderRadius.circular(14),
@@ -1140,10 +1140,6 @@ class _CategoryPageState extends State<CategoryPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.expand_more_rounded,
-                    color: AppColors.green600,
-                  ),
                   const SizedBox(width: 8),
                   Text(
                     "Ver más productos",

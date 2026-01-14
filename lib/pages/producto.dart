@@ -25,9 +25,14 @@ class _ProductPageState extends State<ProductPage> {
   bool _loading = true;
   String _errorMessage = '';
   int selectedIndex = 0;
-  
+
   // Control para expandir/contraer descripción
   bool _isDescriptionExpanded = false;
+
+  // ═══════════════════════════════════════════════════════════
+  // CONTROL ANTI-SPAM PARA AÑADIR AL CARRITO
+  // ═══════════════════════════════════════════════════════════
+  bool _isAddingToCart = false;
 
   // ═══════════════════════════════════════════════════════════
   // PRODUCTOS RELACIONADOS
@@ -47,11 +52,11 @@ class _ProductPageState extends State<ProductPage> {
   Future<void> _loadProduct() async {
     await _getProduct();
     await _getStock();
-    
+
     if (product != null) {
       await _loadRelatedProducts();
     }
-    
+
     setState(() {});
   }
 
@@ -78,7 +83,8 @@ class _ProductPageState extends State<ProductPage> {
 
   Future<void> _getStock() async {
     final url = Uri.parse(
-        "$baseUrl/api/stock_availables?ws_key=$apiKey&output_format=JSON&display=full&filter[id_product]=${widget.id}");
+      "$baseUrl/api/stock_availables?ws_key=$apiKey&output_format=JSON&display=full&filter[id_product]=${widget.id}",
+    );
 
     try {
       final res = await http.get(url);
@@ -104,49 +110,49 @@ class _ProductPageState extends State<ProductPage> {
   // ═══════════════════════════════════════════════════════════
   String _getDescription() {
     if (product == null) return "";
-    
+
     // Intentar obtener descripción corta primero, luego la completa
     String description = "";
-    
+
     // PrestaShop puede devolver la descripción en diferentes formatos
     final descShort = product!["description_short"];
     final descFull = product!["description"];
-    
+
     if (descShort != null && descShort.toString().isNotEmpty) {
       description = descShort.toString();
     } else if (descFull != null && descFull.toString().isNotEmpty) {
       description = descFull.toString();
     }
-    
+
     // Limpiar HTML
     return _stripHtml(description);
   }
-  
+
   String _getFullDescription() {
     if (product == null) return "";
-    
+
     final descFull = product!["description"];
-    
+
     if (descFull != null && descFull.toString().isNotEmpty) {
       return _stripHtml(descFull.toString());
     }
-    
+
     return _getDescription();
   }
-  
+
   /// Elimina etiquetas HTML del texto
   String _stripHtml(String htmlText) {
     if (htmlText.isEmpty) return "";
-    
+
     // Reemplazar <br>, <br/>, <br /> por saltos de línea
     String text = htmlText
         .replaceAll(RegExp(r'<br\s*/?>'), '\n')
         .replaceAll(RegExp(r'<p[^>]*>'), '\n')
         .replaceAll(RegExp(r'</p>'), '\n');
-    
+
     // Eliminar todas las demás etiquetas HTML
     text = text.replaceAll(RegExp(r'<[^>]*>'), '');
-    
+
     // Decodificar entidades HTML comunes
     text = text
         .replaceAll('&nbsp;', ' ')
@@ -158,13 +164,13 @@ class _ProductPageState extends State<ProductPage> {
         .replaceAll('&euro;', '€')
         .replaceAll('&copy;', '©')
         .replaceAll('&reg;', '®');
-    
+
     // Limpiar espacios múltiples y saltos de línea excesivos
     text = text
         .replaceAll(RegExp(r' +'), ' ')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
-    
+
     return text;
   }
 
@@ -175,7 +181,7 @@ class _ProductPageState extends State<ProductPage> {
     if (product == null) return;
 
     final categoryId = product!["id_category_default"]?.toString() ?? "";
-    
+
     if (categoryId.isEmpty) {
       setState(() => _loadingRelated = false);
       return;
@@ -183,7 +189,7 @@ class _ProductPageState extends State<ProductPage> {
 
     try {
       final url = Uri.parse(
-        "$baseUrl/api/products?ws_key=$apiKey&display=full&output_format=JSON&filter[id_category_default]=$categoryId"
+        "$baseUrl/api/products?ws_key=$apiKey&display=full&output_format=JSON&filter[id_category_default]=$categoryId",
       );
 
       final response = await http.get(url);
@@ -213,8 +219,8 @@ class _ProductPageState extends State<ProductPage> {
           int imgId = 0;
           if (p["associations"]?["images"] is List &&
               p["associations"]["images"].isNotEmpty) {
-            imgId = int.tryParse(
-                    p["associations"]["images"][0]["id"].toString()) ??
+            imgId =
+                int.tryParse(p["associations"]["images"][0]["id"].toString()) ??
                 0;
           }
 
@@ -255,7 +261,8 @@ class _ProductPageState extends State<ProductPage> {
 
   bool _isProductAvailable() {
     if (stockData == null) return false;
-    final quantity = int.tryParse(stockData!["quantity"]?.toString() ?? "0") ?? 0;
+    final quantity =
+        int.tryParse(stockData!["quantity"]?.toString() ?? "0") ?? 0;
     return quantity > 0;
   }
 
@@ -279,8 +286,10 @@ class _ProductPageState extends State<ProductPage> {
     final stockId = stockData!["id"]?.toString();
     if (stockId == null) return;
 
-    final idProduct = stockData!["id_product"]?.toString() ?? product!["id"].toString();
-    final idProductAttribute = stockData!["id_product_attribute"]?.toString() ?? "0";
+    final idProduct =
+        stockData!["id_product"]?.toString() ?? product!["id"].toString();
+    final idProductAttribute =
+        stockData!["id_product_attribute"]?.toString() ?? "0";
     final idShop = stockData!["id_shop"]?.toString() ?? "1";
     final idShopGroup = stockData!["id_shop_group"]?.toString() ?? "0";
     final dependsOnStock = stockData!["depends_on_stock"]?.toString() ?? "0";
@@ -292,7 +301,10 @@ class _ProductPageState extends State<ProductPage> {
     if (quantity <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("No queda stock.", style: AppText.body.copyWith(color: AppColors.white)),
+          content: Text(
+            "No queda stock.",
+            style: AppText.body.copyWith(color: AppColors.white),
+          ),
           backgroundColor: Colors.red.shade600,
         ),
       );
@@ -301,7 +313,8 @@ class _ProductPageState extends State<ProductPage> {
 
     final newQuantity = quantity - 1;
 
-    final xmlBody = '''
+    final xmlBody =
+        '''
 <?xml version="1.0" encoding="UTF-8"?>
 <prestashop xmlns:xlink="http://www.w3.org/1999/xlink">
   <stock_available>
@@ -323,12 +336,14 @@ class _ProductPageState extends State<ProductPage> {
     );
 
     try {
-      final res = await http.put(url,
-          headers: {
-            "Content-Type": "application/xml",
-            "Accept": "application/xml",
-          },
-          body: xmlBody);
+      final res = await http.put(
+        url,
+        headers: {
+          "Content-Type": "application/xml",
+          "Accept": "application/xml",
+        },
+        body: xmlBody,
+      );
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         setState(() {
@@ -339,6 +354,223 @@ class _ProductPageState extends State<ProductPage> {
       debugPrint("PUT stock error: $e");
     }
   }
+
+  // ═══════════════════════════════════════════════════════════
+// AÑADIR AL CARRITO CON DELAY ANTI-SPAM
+// ═══════════════════════════════════════════════════════════
+Future<void> _addToCart({
+  required dynamic id,
+  required String name,
+  required double priceTaxExcl,
+  required double priceTaxIncl,
+  required double taxRate,
+  required String imageUrl,
+}) async {
+  // Evitar múltiples pulsaciones
+  if (_isAddingToCart) return;
+
+  setState(() => _isAddingToCart = true);
+
+  try {
+    // Actualizar stock
+    await _restarStock();
+
+    // Añadir al carrito local
+    Cart.addItem(
+      CartItem(
+        id: id,
+        name: name,
+        priceTaxExcl: priceTaxExcl,
+        priceTaxIncl: priceTaxIncl,
+        taxRate: taxRate,
+        quantity: 1,
+        image: imageUrl,
+      ),
+    );
+
+    // Mostrar mensaje de confirmación con botones
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ═══════════════════════════════════════════
+              // FILA SUPERIOR: Mensaje + Botón cerrar
+              // ═══════════════════════════════════════════
+              Row(
+                children: [
+                  
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "¡Añadido al carrito!",
+                          style: AppText.body.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          name.length > 50 
+                              ? "${name.substring(0, 30)}..." 
+                              : name,
+                          style: AppText.small.copyWith(
+                            color: Colors.white.withOpacity(0.85),
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // ═══════════════════════════════════════════
+              // FILA INFERIOR: Botones de acción
+              // ═══════════════════════════════════════════
+              Row(
+                children: [
+                  // BOTÓN: Seguir comprando
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shopping_bag_outlined,
+                              color: AppColors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Seguir comprando",
+                              style: AppText.small.copyWith(
+                                color: AppColors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  // BOTÓN: Ir al carrito
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        Navigator.pushNamed(context, '/carrito');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shopping_cart_rounded,
+                              color: AppColors.green600,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Ir al carrito",
+                              style: AppText.small.copyWith(
+                                color: AppColors.green600,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.green600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          elevation: 10,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // DELAY: Esperar antes de permitir otra pulsación
+    // ═══════════════════════════════════════════════════════
+    await Future.delayed(const Duration(seconds: 2));
+
+  } catch (e) {
+    debugPrint("Error añadiendo al carrito: $e");
+
+    // Mostrar error si algo falla
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: AppColors.white),
+              const SizedBox(width: 10),
+              Text(
+                "Error al añadir al carrito",
+                style: AppText.body.copyWith(color: AppColors.white),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  } finally {
+    // Rehabilitar el botón
+    if (mounted) {
+      setState(() => _isAddingToCart = false);
+    }
+  }
+}
 
   double _getTaxRateFromGroup() {
     final taxGroupId = product?["id_tax_rules_group"]?.toString() ?? "0";
@@ -387,14 +619,11 @@ class _ProductPageState extends State<ProductPage> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
-            Text(
-              "Compartir producto",
-              style: AppText.subtitle,
-            ),
-            
+
+            Text("Compartir producto", style: AppText.subtitle),
+
             const SizedBox(height: 20),
-            
+
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -404,8 +633,14 @@ class _ProductPageState extends State<ProductPage> {
                 ),
                 child: const Icon(Icons.link, color: AppColors.purple600),
               ),
-              title: Text("Copiar enlace", style: AppText.body.copyWith(fontWeight: FontWeight.w600)),
-              subtitle: Text("Copia el enlace al portapapeles", style: AppText.small),
+              title: Text(
+                "Copiar enlace",
+                style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                "Copia el enlace al portapapeles",
+                style: AppText.small,
+              ),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: url));
                 Navigator.pop(context);
@@ -415,7 +650,10 @@ class _ProductPageState extends State<ProductPage> {
                       children: [
                         const Icon(Icons.check, color: AppColors.white),
                         const SizedBox(width: 12),
-                        Text("Enlace copiado", style: AppText.body.copyWith(color: AppColors.white)),
+                        Text(
+                          "Enlace copiado",
+                          style: AppText.body.copyWith(color: AppColors.white),
+                        ),
                       ],
                     ),
                     backgroundColor: AppColors.green600,
@@ -428,9 +666,9 @@ class _ProductPageState extends State<ProductPage> {
                 );
               },
             ),
-            
+
             const SizedBox(height: 8),
-            
+
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -440,7 +678,10 @@ class _ProductPageState extends State<ProductPage> {
                 ),
                 child: const Icon(Icons.message, color: AppColors.green600),
               ),
-              title: Text("Copiar mensaje completo", style: AppText.body.copyWith(fontWeight: FontWeight.w600)),
+              title: Text(
+                "Copiar mensaje completo",
+                style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+              ),
               subtitle: Text("Incluye nombre y enlace", style: AppText.small),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: shareText));
@@ -451,7 +692,10 @@ class _ProductPageState extends State<ProductPage> {
                       children: [
                         const Icon(Icons.check, color: AppColors.white),
                         const SizedBox(width: 12),
-                        Text("Mensaje copiado", style: AppText.body.copyWith(color: AppColors.white)),
+                        Text(
+                          "Mensaje copiado",
+                          style: AppText.body.copyWith(color: AppColors.white),
+                        ),
                       ],
                     ),
                     backgroundColor: AppColors.green600,
@@ -464,7 +708,7 @@ class _ProductPageState extends State<ProductPage> {
                 );
               },
             ),
-            
+
             const SizedBox(height: 16),
           ],
         ),
@@ -488,15 +732,15 @@ class _ProductPageState extends State<ProductPage> {
                       ),
                     )
                   : product == null
-                      ? Center(
-                          child: Text(
-                            _errorMessage.isNotEmpty 
-                                ? _errorMessage 
-                                : "No se encontró el producto",
-                            style: AppText.body,
-                          ),
-                        )
-                      : _buildProductLayout(),
+                  ? Center(
+                      child: Text(
+                        _errorMessage.isNotEmpty
+                            ? _errorMessage
+                            : "No se encontró el producto",
+                        style: AppText.body,
+                      ),
+                    )
+                  : _buildProductLayout(),
             ),
           ],
         ),
@@ -539,8 +783,11 @@ class _ProductPageState extends State<ProductPage> {
                 color: AppColors.background,
                 child: imageUrl.isEmpty
                     ? const Center(
-                        child: Icon(Icons.image_not_supported, 
-                            size: 80, color: Colors.grey),
+                        child: Icon(
+                          Icons.image_not_supported,
+                          size: 80,
+                          color: Colors.grey,
+                        ),
                       )
                     : Image.network(
                         imageUrl,
@@ -549,13 +796,16 @@ class _ProductPageState extends State<ProductPage> {
                         height: imageHeight,
                         errorBuilder: (context, error, stackTrace) {
                           return const Center(
-                            child: Icon(Icons.broken_image, 
-                                size: 80, color: Colors.grey),
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 80,
+                              color: Colors.grey,
+                            ),
                           );
                         },
                       ),
               ),
-              
+
               // BADGE "AGOTADO"
               if (!isAvailable)
                 Positioned(
@@ -671,14 +921,14 @@ class _ProductPageState extends State<ProductPage> {
     final priceTaxIncl = priceTaxExcl * (1 + taxRate / 100);
     final imageUrl = _getImageUrl();
     final bool isAvailable = _isProductAvailable();
-    
+
     // Determinar si la descripción es larga (más de 150 caracteres)
     final bool hasLongDescription = fullDescription.length > 150;
-    final String displayDescription = _isDescriptionExpanded 
-        ? fullDescription 
-        : (hasLongDescription 
-            ? "${fullDescription.substring(0, 150)}..." 
-            : fullDescription);
+    final String displayDescription = _isDescriptionExpanded
+        ? fullDescription
+        : (hasLongDescription
+              ? "${fullDescription.substring(0, 150)}..."
+              : fullDescription);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
@@ -699,16 +949,9 @@ class _ProductPageState extends State<ProductPage> {
           ),
 
           // NOMBRE DEL PRODUCTO
-          Text(
-            name,
-            style: AppText.title.copyWith(
-              fontSize: 18,
-              height: 1.3,
-              
-            ),
-          ),
+          Text(name, style: AppText.title.copyWith(fontSize: 18, height: 1.3)),
 
-          const SizedBox(height: 15),      
+          const SizedBox(height: 15),
 
           // PRECIO + IVA INCLUIDO
           Row(
@@ -721,25 +964,21 @@ class _ProductPageState extends State<ProductPage> {
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'Mulish',
-                  color: isAvailable 
-                      ? AppColors.green600 
+                  color: isAvailable
+                      ? AppColors.green600
                       : Colors.grey.shade500,
                 ),
               ),
               const SizedBox(width: 10),
               Text(
                 "IVA incluido",
-                style: AppText.small.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+                style: AppText.small.copyWith(color: Colors.grey.shade600),
               ),
             ],
           ),
 
-
           // MENSAJE "PRODUCTO NO DISPONIBLE"
           if (!isAvailable)
-          
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -748,7 +987,7 @@ class _ProductPageState extends State<ProductPage> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.red.shade200),
               ),
-              
+
               child: Row(
                 children: [
                   Icon(
@@ -756,7 +995,7 @@ class _ProductPageState extends State<ProductPage> {
                     color: Colors.red.shade700,
                     size: 22,
                   ),
-                  
+
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -801,96 +1040,45 @@ class _ProductPageState extends State<ProductPage> {
             height: 54,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isAvailable 
-                    ? AppColors.green600 
+                backgroundColor: isAvailable && !_isAddingToCart
+                    ? AppColors.green600
                     : Colors.grey.shade400,
                 foregroundColor: AppColors.white,
-                elevation: isAvailable ? 2 : 0,
+                elevation: isAvailable && !_isAddingToCart ? 2 : 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              icon: Icon(
-                isAvailable 
-                    ? Icons.shopping_cart_outlined 
-                    : Icons.block_outlined,
-                size: 22,
-              ),
+              icon: _isAddingToCart
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        color: AppColors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  : Icon(
+                      isAvailable
+                          ? Icons.shopping_cart_outlined
+                          : Icons.block_outlined,
+                      size: 22,
+                    ),
               label: Text(
-                isAvailable ? "Añadir al carrito" : "No disponible",
+                _isAddingToCart
+                    ? "Añadiendo..."
+                    : (isAvailable ? "Añadir al carrito" : "No disponible"),
                 style: AppText.button.copyWith(fontSize: 17),
               ),
-              onPressed: isAvailable
-                  ? () async {
-                      await _restarStock();
-
-                      Cart.addItem(
-                        CartItem(
-                          id: id,
-                          name: name,
-                          priceTaxExcl: priceTaxExcl,
-                          priceTaxIncl: priceTaxIncl,
-                          taxRate: taxRate,
-                          quantity: 1,
-                          image: imageUrl,
-                        ),
-                      );
-
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(
-                                  Icons.check_circle_rounded,
-                                  color: AppColors.white,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  "Añadido al carrito",
-                                  style: AppText.body.copyWith(
-                                    color: AppColors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                const Spacer(), // ← Empuja la X hacia la derecha
-                                GestureDetector(
-                                  onTap: () {
-                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.25),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close_rounded,
-                                      color: AppColors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: AppColors.green600.withOpacity(0.85),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 20,
-                            ),
-                            elevation: 8,
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    }
+              onPressed: (isAvailable && !_isAddingToCart)
+                  ? () => _addToCart(
+                      id: id,
+                      name: name,
+                      priceTaxExcl: priceTaxExcl,
+                      priceTaxIncl: priceTaxIncl,
+                      taxRate: taxRate,
+                      imageUrl: imageUrl,
+                    )
                   : null,
             ),
           ),
@@ -922,9 +1110,7 @@ class _ProductPageState extends State<ProductPage> {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.grey.shade200,
-        ),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -947,15 +1133,13 @@ class _ProductPageState extends State<ProductPage> {
               const SizedBox(width: 12),
               Text(
                 "Descripción",
-                style: AppText.subtitle.copyWith(
-                  fontSize: 15,
-                ),
+                style: AppText.subtitle.copyWith(fontSize: 15),
               ),
             ],
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Texto de descripción
           AnimatedCrossFade(
             firstChild: Text(
@@ -974,12 +1158,12 @@ class _ProductPageState extends State<ProductPage> {
                 height: 1.5,
               ),
             ),
-            crossFadeState: _isDescriptionExpanded 
-                ? CrossFadeState.showSecond 
+            crossFadeState: _isDescriptionExpanded
+                ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
             duration: const Duration(milliseconds: 300),
           ),
-          
+
           // Botón expandir/contraer
           if (hasLongDescription) ...[
             const SizedBox(height: 12),
@@ -1001,8 +1185,8 @@ class _ProductPageState extends State<ProductPage> {
                   ),
                   const SizedBox(width: 4),
                   Icon(
-                    _isDescriptionExpanded 
-                        ? Icons.keyboard_arrow_up_rounded 
+                    _isDescriptionExpanded
+                        ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
                     color: AppColors.green600,
                     size: 20,
@@ -1038,18 +1222,14 @@ class _ProductPageState extends State<ProductPage> {
       children: [
         Text(
           "MÁS PRODUCTOS",
-          style: AppText.subtitle.copyWith(
-            letterSpacing: 0.5,
-          ),
+          style: AppText.subtitle.copyWith(letterSpacing: 0.5),
         ),
-        
+
         const SizedBox(height: 4),
-        
+
         Text(
           "Productos de la misma categoría",
-          style: AppText.small.copyWith(
-            color: Colors.grey.shade600,
-          ),
+          style: AppText.small.copyWith(color: Colors.grey.shade600),
         ),
 
         const SizedBox(height: 16),
@@ -1079,9 +1259,7 @@ class _ProductPageState extends State<ProductPage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => ProductPage(id: productId),
-          ),
+          MaterialPageRoute(builder: (_) => ProductPage(id: productId)),
         );
       },
       child: Container(
@@ -1216,11 +1394,7 @@ class _ProductPageState extends State<ProductPage> {
               color: AppColors.green100,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: AppColors.green600,
-              size: 24,
-            ),
+            child: Icon(icon, color: AppColors.green600, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1237,9 +1411,7 @@ class _ProductPageState extends State<ProductPage> {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: AppText.small.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
+                  style: AppText.small.copyWith(color: Colors.grey.shade600),
                 ),
               ],
             ),
