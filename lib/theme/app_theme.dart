@@ -15,7 +15,6 @@ class AppColors {
   static const Color purple700 = Color(0xff770157);
   static const Color purple800 = Color(0xff5c0143);
   static const Color purple900 = Color(0xff460133);
-
   // ------------------------
   // ✅ GREEN
   // ------------------------
@@ -36,6 +35,8 @@ class AppColors {
   static const Color background = Color(0xfff5f5f5);
   static const Color textDark = Color(0xff1a1a1a);
   static const Color white = Colors.white;
+  
+  static const Color yellow500 = Color(0xFFF59E0B);
 
   // ✅ Elegimos un "primary" basado en la paleta
   static const Color primary = green500;

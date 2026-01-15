@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../pages/producto.dart';
 import '../pages/search_results_page.dart';
 import '../pages/category.dart';
+import '../pages/scanner_page.dart';
 
 class SearchDrawer extends StatefulWidget {
   const SearchDrawer({super.key});
@@ -24,7 +25,18 @@ class _SearchDrawerState extends State<SearchDrawer> {
   // ═══════════════════════════════════════════════════════════
   List<Map<String, dynamic>> _allProducts = [];
   List<Map<String, dynamic>> _filteredProducts = [];
-
+// ═══════════════════════════════════════════════════════════
+// ABRIR ESCÁNER
+// ═══════════════════════════════════════════════════════════
+void _openScanner() {
+  Navigator.pop(context); // Cerrar drawer
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const ScannerPage(),
+    ),
+  );
+}
   // ═══════════════════════════════════════════════════════════
   // CATEGORÍAS
   // ═══════════════════════════════════════════════════════════
@@ -432,114 +444,149 @@ class _SearchDrawerState extends State<SearchDrawer> {
   // WIDGET: HEADER
   // ═══════════════════════════════════════════════════════════
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
+  return Container(
+    padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Icono y título
+        Row(
+          children: [
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Buscar",
+                  style: AppText.title.copyWith(fontSize: 18),
+                ),
+                Text(
+                  "Categorías y productos",
+                  style: AppText.small.copyWith(
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+
+        // Botones: Escáner + Cerrar
+        Row(
+          children: [
+            // ═══════════════════════════════════════
+            // BOTÓN CERRAR
+            // ═══════════════════════════════════════
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
                 padding: const EdgeInsets.all(10),
-                child: const Icon(
-                  Icons.search_rounded,
-                  color: AppColors.purple600,
-                  size: 24,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.close_rounded,
+                  color: Colors.grey.shade600,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Buscar",
-                    style: AppText.title.copyWith(fontSize: 18),
-                  ),
-                  Text(
-                    "Categorías y productos",
-                    style: AppText.small.copyWith(
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+  // ═══════════════════════════════════════════════════════════
+// WIDGET: BARRA DE BÚSQUEDA
+// ═══════════════════════════════════════════════════════════
+Widget _buildSearchBar() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    child: Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                shape: BoxShape.circle,
+        ],
+      ),
+      child: Row(
+        children: [
+          // ═══════════════════════════════════════
+          // CAMPO DE BÚSQUEDA
+          // ═══════════════════════════════════════
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: _filterAll,
+              onSubmitted: (_) => _goToSearchResults(),
+              style: AppText.body.copyWith(fontSize: 15),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Buscar categorías o productos...',
+                hintStyle: AppText.body.copyWith(
+                  color: AppColors.textDark.withOpacity(0.4),
+                  fontSize: 15,
+                ),
+                suffixIcon: _searchText.isNotEmpty
+                    ? IconButton(
+                        onPressed: _clearSearch,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: AppColors.textDark.withOpacity(0.4),
+                        ),
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: AppColors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
               ),
+            ),
+          ),
+
+          // ═══════════════════════════════════════
+          // SEPARADOR
+          // ═══════════════════════════════════════
+          Container(
+            height: 30,
+            width: 1,
+            color: Colors.grey.shade300,
+          ),
+
+          // ═══════════════════════════════════════
+          // BOTÓN ESCÁNER
+          // ═══════════════════════════════════════
+          GestureDetector(
+            onTap: _openScanner,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: Icon(
-                Icons.close_rounded,
-                color: Colors.grey.shade600,
-                size: 22,
+                Icons.qr_code_scanner_rounded,
+                color: AppColors.purple600,
+                size: 24,
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // WIDGET: BARRA DE BÚSQUEDA
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: _searchController,
-          focusNode: _searchFocusNode,
-          onChanged: _filterAll,
-          onSubmitted: (_) => _goToSearchResults(),
-          style: AppText.body.copyWith(fontSize: 15),
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: 'Buscar categorías o productos...',
-            hintStyle: AppText.body.copyWith(
-              color: AppColors.textDark.withOpacity(0.4),
-              fontSize: 15,
-            ),
-            suffixIcon: _searchText.isNotEmpty
-                ? IconButton(
-                    onPressed: _clearSearch,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppColors.textDark.withOpacity(0.4),
-                    ),
-                  )
-                : null,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            filled: true,
-            fillColor: AppColors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
+}
 
   // ═══════════════════════════════════════════════════════════
   // WIDGET: INFO DE RESULTADOS

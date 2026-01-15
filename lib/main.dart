@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:app_farmacia/pages/SplashAnimated.dart';
 import 'package:app_farmacia/pages/carrito.dart';
-import 'package:app_farmacia/pages/producto.dart';
+import 'package:app_farmacia/pages/producto.dart';      
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'widgets/header.dart';
-import 'widgets/footer.dart';
+import 'widgets/footer.dart';  
 import 'pages/tienda.dart';
 import 'pages/user.dart';
 import 'pages/chat.dart';

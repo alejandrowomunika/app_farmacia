@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart'; // Asegúrate de que esta ruta sea correcta
+import '../theme/app_theme.dart';
+import '../pages/scanner_page.dart'; // ← AÑADIR ESTE IMPORT
 
-// ═══════════════════════════════════════════════════════════
-// WIDGET PRINCIPAL: MenuDrawer (ahora StatefulWidget)
-// ═══════════════════════════════════════════════════════════
 class MenuDrawer extends StatefulWidget {
   const MenuDrawer({super.key});
 
@@ -12,8 +10,7 @@ class MenuDrawer extends StatefulWidget {
 }
 
 class _MenuDrawerState extends State<MenuDrawer> {
-  // Opcional: Si quieres controlar el estado de la expansión manualmente
-  // bool _isPoliciesExpanded = false;
+  bool _isPoliciesExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +21,7 @@ class _MenuDrawerState extends State<MenuDrawer> {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: screenWidth * 0.80, // 80% del ancho
+          width: screenWidth * 0.80,
           height: double.infinity,
           decoration: const BoxDecoration(
             color: AppColors.white,
@@ -36,23 +33,19 @@ class _MenuDrawerState extends State<MenuDrawer> {
           child: SafeArea(
             child: Column(
               children: [
-                // ═══════════════════════════════════════════
-                // HEADER DEL MENÚ
-                // ═══════════════════════════════════════════
                 _buildMenuHeader(context),
-
                 const SizedBox(height: 8),
-
                 Divider(color: Colors.grey.shade200, height: 1),
 
-                // ═══════════════════════════════════════════
-                // ENLACES DEL MENÚ
-                // ═══════════════════════════════════════════
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Column(
                       children: [
+                        // ═══════════════════════════════════════
+                        // NAVEGACIÓN PRINCIPAL
+                        // ═══════════════════════════════════════
                         _MenuLink(
                           icon: Icons.home_rounded,
                           label: "Inicio",
@@ -63,19 +56,29 @@ class _MenuDrawerState extends State<MenuDrawer> {
                           label: "Tienda",
                           onTap: () => _navigateTo(context, '/tienda'),
                         ),
+
+                        // ═══════════════════════════════════════
+                        // ESCÁNER DE CÓDIGO DE BARRAS ← NUEVO
+                        // ═══════════════════════════════════════
+                        _MenuLink(
+                          icon: Icons.qr_code_scanner_rounded,
+                          label: "Escanear producto",
+                          onTap: () => _openScanner(context),
+                          highlighted: true, // Destacado
+                        ),
+
+                        // ═══════════════════════════════════════
+                        // OFERTAS - DESACTIVADO
+                        // ═══════════════════════════════════════
                         _MenuLink(
                           icon: Icons.local_offer_rounded,
                           label: "Ofertas",
-                          onTap: null, // Establecer onTap a null para deshabilitar
-                          isEnabled: false, // Indicar que está deshabilitado
+                          onTap: () {},
+                          enabled: false,
+                          badge: "Próximamente",
                         ),
 
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                          ),
-                          child: Divider(color: Colors.grey.shade200),
-                        ),
+                        _buildDivider(),
 
                         _MenuLink(
                           icon: Icons.chat_rounded,
@@ -88,12 +91,7 @@ class _MenuDrawerState extends State<MenuDrawer> {
                           onTap: () => _navigateTo(context, '/carrito'),
                         ),
 
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                          ),
-                          child: Divider(color: Colors.grey.shade200),
-                        ),
+                        _buildDivider(),
 
                         _MenuLink(
                           icon: Icons.phone_rounded,
@@ -101,73 +99,151 @@ class _MenuDrawerState extends State<MenuDrawer> {
                           onTap: () => _navigateTo(context, '/contacto'),
                         ),
 
-                        // ═══════════════════════════════════════════
-                        // SECCIÓN DE POLÍTICAS (Desplegable)
-                        // ═══════════════════════════════════════════
-                        Theme(
-                          // Usamos Theme para quitar el divider interno de ExpansionTile y otros estilos si es necesario
-                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                          child: ExpansionTile(
-                            tilePadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
-                            childrenPadding: const EdgeInsets.only(left: 32, right: 16), // Indentación para los elementos hijos
-                            leading: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.gavel_rounded, // Icono para la sección Políticas
-                                color: AppColors.purple600,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              "Políticas",
-                              style: AppText.body.copyWith(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                            iconColor: AppColors.purple600, // Color de la flecha de expansión
-                            collapsedIconColor: AppColors.purple600,
-                            
-                            children: [
-                              _MenuLink(
-                                icon: Icons.description_rounded, // Icono para Aviso Legal
-                                label: "Aviso Legal",
-                                onTap: () => _navigateTo(context, '/aviso-legal'),
-                              ),
-                              _MenuLink(
-                                icon: Icons.lock_rounded, // Icono para Política de Privacidad
-                                label: "Política de Privacidad",
-                                onTap: () => _navigateTo(context, '/politica-privacidad'),
-                              ),
-                              _MenuLink(
-                                icon: Icons.cookie_rounded, // Icono para Política de Cookies
-                                label: "Política de Cookies",
-                                onTap: () => _navigateTo(context, '/politica-cookies'),
-                              ),
-                              _MenuLink(
-                                icon: Icons.local_shipping_rounded, // Icono para Política de Envíos
-                                label: "Política de Envíos",
-                                onTap: () => _navigateTo(context, '/politica-envios'),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _buildPoliciesSection(),
                       ],
                     ),
                   ),
                 ),
 
-                // ═══════════════════════════════════════════
-                // FOOTER DEL MENÚ
-                // ═══════════════════════════════════════════
                 _buildMenuFooter(),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Divider(color: Colors.grey.shade200),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ABRIR ESCÁNER ← NUEVO MÉTODO
+  // ═══════════════════════════════════════════════════════════
+  void _openScanner(BuildContext context) {
+    Navigator.pop(context); // Cerrar menú
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ScannerPage(),
+      ),
+    );
+  }
+
+
+  Widget _buildPoliciesSection() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _isPoliciesExpanded = !_isPoliciesExpanded;
+                });
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: _isPoliciesExpanded 
+                      ? AppColors.purple50 
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _isPoliciesExpanded 
+                            ? AppColors.purple200 
+                            : AppColors.purple100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.policy_rounded,
+                        color: AppColors.purple600,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        "Políticas",
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _isPoliciesExpanded ? 0.25 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: _isPoliciesExpanded 
+                            ? AppColors.purple500 
+                            : Colors.grey.shade400,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: _buildPoliciesSubItems(),
+          crossFadeState: _isPoliciesExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPoliciesSubItems() {
+    return Container(
+      margin: const EdgeInsets.only(left: 24, top: 4),
+      padding: const EdgeInsets.only(left: 16),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: AppColors.purple200, width: 2),
+        ),
+      ),
+      child: Column(
+        children: [
+          _PolicySubItem(
+            icon: Icons.gavel_rounded,
+            label: "Aviso Legal",
+            onTap: () => _navigateTo(context, '/aviso-legal'),
+          ),
+          _PolicySubItem(
+            icon: Icons.privacy_tip_rounded,
+            label: "Política de Privacidad",
+            onTap: () => _navigateTo(context, '/politica-privacidad'),
+          ),
+          _PolicySubItem(
+            icon: Icons.cookie_rounded,
+            label: "Política de Cookies",
+            onTap: () => _navigateTo(context, '/politica-cookies'),
+          ),
+          _PolicySubItem(
+            icon: Icons.local_shipping_rounded,
+            label: "Política de Envíos",
+            onTap: () => _navigateTo(context, '/politica-envios'),
+          ),
+        ],
       ),
     );
   }
@@ -183,11 +259,12 @@ class _MenuDrawerState extends State<MenuDrawer> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
+                  color: AppColors.green100,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.local_pharmacy_rounded,
-                  color: AppColors.purple600,
+                  color: AppColors.green600,
                   size: 24,
                 ),
               ),
@@ -195,15 +272,15 @@ class _MenuDrawerState extends State<MenuDrawer> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text("Menú", style: AppText.title.copyWith(fontSize: 18)),
                   Text(
-                    "Menú",
-                    style: AppText.title.copyWith(fontSize: 18),
+                    "Farmacia Guerrero",
+                    style: AppText.small.copyWith(color: Colors.grey.shade600),
                   ),
                 ],
               ),
             ],
           ),
-          // Botón cerrar
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
@@ -240,7 +317,7 @@ class _MenuDrawerState extends State<MenuDrawer> {
           ),
           const SizedBox(height: 4),
           Text(
-            "© 2026 Todos los derechos reservados a Womunika",
+            "© 2024 Todos los derechos reservados",
             style: AppText.small.copyWith(
               color: Colors.grey.shade400,
               fontSize: 11,
@@ -252,77 +329,165 @@ class _MenuDrawerState extends State<MenuDrawer> {
   }
 
   void _navigateTo(BuildContext context, String route) {
-    Navigator.pop(context); // Cerrar drawer
+    Navigator.pop(context);
     Navigator.pushNamed(context, route);
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-// WIDGET: ENLACE DEL MENÚ (Modificado para habilitar/deshabilitar)
+// WIDGET: ENLACE DEL MENÚ (ACTUALIZADO CON highlighted)
 // ═══════════════════════════════════════════════════════════
 class _MenuLink extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback? onTap; // Ahora puede ser null
-  final bool isEnabled; // Nuevo parámetro para controlar la habilitación
+  final VoidCallback onTap;
+  final bool enabled;
+  final String? badge;
+  final bool highlighted; // ← NUEVO
 
   const _MenuLink({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.isEnabled = true, // Por defecto está habilitado
+    this.enabled = true,
+    this.badge,
+    this.highlighted = false, // ← NUEVO
   });
 
   @override
   Widget build(BuildContext context) {
-    // Definir colores basados en si el enlace está habilitado o no
-    final Color iconColor = isEnabled ? AppColors.purple600 : Colors.grey.shade400;
-    final Color textColor = isEnabled ? AppText.body.color ?? Colors.black : Colors.grey.shade600;
-    final Color chevronColor = isEnabled ? AppColors.purple600 : Colors.grey.shade300;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isEnabled ? onTap : null, // Deshabilita el InkWell si isEnabled es false
+          onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-            ),
             child: Row(
               children: [
+                // Icono
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
+                    color: highlighted
+                        ? AppColors.purple100
+                        : (enabled ? AppColors.purple100 : Colors.grey.shade200),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    color: iconColor, // Color condicional
-                    size: 22,
+                    color: highlighted
+                        ? AppColors.purple600
+                        : (enabled ? AppColors.purple600 : Colors.grey.shade400),
+                    size: 20,
                   ),
                 ),
                 const SizedBox(width: 14),
+
+                // Label
                 Expanded(
-                  child: Text(
-                    label,
-                    style: AppText.body.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: textColor, // Color condicional
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: highlighted
+                              ? AppColors.purple700
+                              : (enabled ? AppColors.textDark : Colors.grey.shade400),
+                        ),
+                      ),
+                      if (badge != null) ...[
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            badge!,
+                            style: AppText.small.copyWith(
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+
+                // Flecha o candado
                 Icon(
-                  Icons.chevron_right_rounded,
-                  color: chevronColor, // Color condicional
-                  size: 22,
+                  enabled
+                      ? Icons.chevron_right_rounded
+                      : Icons.lock_outline_rounded,
+                  color: highlighted
+                      ? Colors.grey.shade400
+                      : Colors.grey.shade400,
+                  size: enabled ? 22 : 18,
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// WIDGET: SUBITEM DE POLÍTICAS
+// ═══════════════════════════════════════════════════════════
+class _PolicySubItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _PolicySubItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.purple400, size: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppText.small.copyWith(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    color: AppColors.textDark.withOpacity(0.8),
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.grey.shade400,
+                size: 14,
+              ),
+            ],
           ),
         ),
       ),
