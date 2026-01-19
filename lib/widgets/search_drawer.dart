@@ -25,18 +25,17 @@ class _SearchDrawerState extends State<SearchDrawer> {
   // ═══════════════════════════════════════════════════════════
   List<Map<String, dynamic>> _allProducts = [];
   List<Map<String, dynamic>> _filteredProducts = [];
-// ═══════════════════════════════════════════════════════════
-// ABRIR ESCÁNER
-// ═══════════════════════════════════════════════════════════
-void _openScanner() {
-  Navigator.pop(context); // Cerrar drawer
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const ScannerPage(),
-    ),
-  );
-}
+  // ═══════════════════════════════════════════════════════════
+  // ABRIR ESCÁNER
+  // ═══════════════════════════════════════════════════════════
+  void _openScanner() {
+    Navigator.pop(context); // Cerrar drawer
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════
   // CATEGORÍAS
   // ═══════════════════════════════════════════════════════════
@@ -111,9 +110,10 @@ void _openScanner() {
 
         for (final it in items) {
           if (it is Map<String, dynamic>) {
-            final id = (it['id'] ?? it['id_category'] ?? it['category_id'])?.toString();
+            final id = (it['id'] ?? it['id_category'] ?? it['category_id'])
+                ?.toString();
             var name = it['name'] ?? it['category_name'];
-            
+
             // Manejar nombre multilenguaje
             if (name is Map && name['language'] is List) {
               name = name['language'][0]['value'] ?? 'Categoría';
@@ -150,7 +150,9 @@ void _openScanner() {
         "$baseUrl/api/stock_availables?ws_key=$apiKey&output_format=JSON&display=[id_product,quantity]",
       );
 
-      final stockResponse = await http.get(stockUrl).timeout(const Duration(seconds: 15));
+      final stockResponse = await http
+          .get(stockUrl)
+          .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
@@ -161,8 +163,10 @@ void _openScanner() {
         Map<int, int> tempStockMap = {};
 
         for (var stock in stocks) {
-          final productId = int.tryParse(stock["id_product"]?.toString() ?? "0") ?? 0;
-          final quantity = int.tryParse(stock["quantity"]?.toString() ?? "0") ?? 0;
+          final productId =
+              int.tryParse(stock["id_product"]?.toString() ?? "0") ?? 0;
+          final quantity =
+              int.tryParse(stock["quantity"]?.toString() ?? "0") ?? 0;
 
           if (tempStockMap.containsKey(productId)) {
             tempStockMap[productId] = tempStockMap[productId]! + quantity;
@@ -212,9 +216,15 @@ void _openScanner() {
           final taxGroupId = product["id_tax_rules_group"]?.toString() ?? "0";
           double taxRate = 0;
           switch (taxGroupId) {
-            case "1": taxRate = 4; break;
-            case "2": taxRate = 10; break;
-            case "3": taxRate = 21; break;
+            case "1":
+              taxRate = 4;
+              break;
+            case "2":
+              taxRate = 10;
+              break;
+            case "3":
+              taxRate = 21;
+              break;
           }
           final double priceWithTax = price * (1 + taxRate / 100);
 
@@ -252,10 +262,7 @@ void _openScanner() {
 
     try {
       // Cargar todo en paralelo
-      await Future.wait([
-        _loadCategories(),
-        _loadStocks(),
-      ]);
+      await Future.wait([_loadCategories(), _loadStocks()]);
 
       // Cargar productos después de tener los stocks
       await _loadProducts();
@@ -275,9 +282,9 @@ void _openScanner() {
   // ═══════════════════════════════════════════════════════════
   String _extractName(dynamic name) {
     if (name == null) return "Sin nombre";
-    
+
     if (name is String) return name;
-    
+
     if (name is Map) {
       if (name['language'] is List && (name['language'] as List).isNotEmpty) {
         return name['language'][0]['value']?.toString() ?? "Sin nombre";
@@ -286,7 +293,7 @@ void _openScanner() {
         return name['language']['value']?.toString() ?? "Sin nombre";
       }
     }
-    
+
     return name.toString();
   }
 
@@ -295,7 +302,7 @@ void _openScanner() {
   // ═══════════════════════════════════════════════════════════
   String _buildImageUrl(int productId, String imageId) {
     if (imageId.isEmpty) return "";
-    
+
     final digits = imageId.split('');
     final path = digits.join('/');
     return "$baseUrl/img/p/$path/$imageId-home_default.jpg";
@@ -355,7 +362,10 @@ void _openScanner() {
 
   void _loadMore() {
     setState(() {
-      _visibleProductCount = min(_visibleProductCount + _loadMoreStep, _filteredProducts.length);
+      _visibleProductCount = min(
+        _visibleProductCount + _loadMoreStep,
+        _filteredProducts.length,
+      );
     });
   }
 
@@ -375,9 +385,7 @@ void _openScanner() {
     Navigator.pop(context);
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ProductPage(id: productId),
-      ),
+      MaterialPageRoute(builder: (_) => ProductPage(id: productId)),
     );
   }
 
@@ -426,11 +434,10 @@ void _openScanner() {
                 const SizedBox(height: 16),
                 _buildSearchBar(),
                 const SizedBox(height: 12),
-                if (_searchText.length >= 2 && !_isLoading) _buildResultsInfo(),
-                Expanded(
-                  child: _buildSearchResults(),
-                ),
-                if (_filteredProducts.isNotEmpty || _filteredCategories.isNotEmpty) 
+
+                Expanded(child: _buildSearchResults()),
+                if (_filteredProducts.isNotEmpty ||
+                    _filteredCategories.isNotEmpty)
                   _buildSearchAllButton(),
               ],
             ),
@@ -444,181 +451,117 @@ void _openScanner() {
   // WIDGET: HEADER
   // ═══════════════════════════════════════════════════════════
   Widget _buildHeader() {
-  return Container(
-    padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Icono y título
-        Row(
-          children: [
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Buscar",
-                  style: AppText.title.copyWith(fontSize: 18),
-                ),
-                Text(
-                  "Categorías y productos",
-                  style: AppText.small.copyWith(
-                    color: Colors.grey.shade500,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Icono y título
+          Row(
+            children: [
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Buscar", style: AppText.title.copyWith(fontSize: 18)),
+                  Text(
+                    "Categorías y productos",
+                    style: AppText.small.copyWith(color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Botones: Escáner + Cerrar
+          Row(
+            children: [
+              // ═══════════════════════════════════════
+              // BOTÓN CERRAR
+              // ═══════════════════════════════════════
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: Colors.grey.shade600,
+                    size: 22,
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: BARRA DE BÚSQUEDA
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-
-        // Botones: Escáner + Cerrar
-        Row(
+        child: Row(
           children: [
             // ═══════════════════════════════════════
-            // BOTÓN CERRAR
+            // CAMPO DE BÚSQUEDA
             // ═══════════════════════════════════════
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.close_rounded,
-                  color: Colors.grey.shade600,
-                  size: 22,
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: _filterAll,
+                onSubmitted: (_) => _goToSearchResults(),
+                style: AppText.body.copyWith(fontSize: 15),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Buscar categorías o productos...',
+                  hintStyle: AppText.body.copyWith(
+                    color: AppColors.textDark.withOpacity(0.4),
+                    fontSize: 15,
+                  ),
+                  suffixIcon: _searchText.isNotEmpty
+                      ? IconButton(
+                          onPressed: _clearSearch,
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textDark.withOpacity(0.4),
+                          ),
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
               ),
             ),
           ],
         ),
-      ],
-    ),
-  );
-}
-
-  // ═══════════════════════════════════════════════════════════
-// WIDGET: BARRA DE BÚSQUEDA
-// ═══════════════════════════════════════════════════════════
-Widget _buildSearchBar() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    child: Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // ═══════════════════════════════════════
-          // CAMPO DE BÚSQUEDA
-          // ═══════════════════════════════════════
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              onChanged: _filterAll,
-              onSubmitted: (_) => _goToSearchResults(),
-              style: AppText.body.copyWith(fontSize: 15),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Buscar categorías o productos...',
-                hintStyle: AppText.body.copyWith(
-                  color: AppColors.textDark.withOpacity(0.4),
-                  fontSize: 15,
-                ),
-                suffixIcon: _searchText.isNotEmpty
-                    ? IconButton(
-                        onPressed: _clearSearch,
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: AppColors.textDark.withOpacity(0.4),
-                        ),
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: AppColors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-              ),
-            ),
-          ),
-
-          // ═══════════════════════════════════════
-          // SEPARADOR
-          // ═══════════════════════════════════════
-          Container(
-            height: 30,
-            width: 1,
-            color: Colors.grey.shade300,
-          ),
-
-          // ═══════════════════════════════════════
-          // BOTÓN ESCÁNER
-          // ═══════════════════════════════════════
-          GestureDetector(
-            onTap: _openScanner,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Icon(
-                Icons.qr_code_scanner_rounded,
-                color: AppColors.purple600,
-                size: 24,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-  // ═══════════════════════════════════════════════════════════
-  // WIDGET: INFO DE RESULTADOS
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildResultsInfo() {
-    final totalResults = _filteredCategories.length + _filteredProducts.length;
-    final hasResults = totalResults > 0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 16,
-            decoration: BoxDecoration(
-              color: hasResults ? AppColors.green500 : AppColors.purple500,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              hasResults
-                  ? "${_filteredCategories.length} categoría${_filteredCategories.length != 1 ? 's' : ''} · ${_filteredProducts.length} producto${_filteredProducts.length != 1 ? 's' : ''}"
-                  : "Sin resultados para \"$_searchText\"",
-              style: AppText.small.copyWith(
-                color: AppColors.textDark.withOpacity(0.6),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -656,7 +599,9 @@ Widget _buildSearchBar() {
       return _buildEmptyState();
     }
 
-    final visibleProducts = _filteredProducts.take(_visibleProductCount).toList();
+    final visibleProducts = _filteredProducts
+        .take(_visibleProductCount)
+        .toList();
     final hasMoreProducts = _visibleProductCount < _filteredProducts.length;
 
     return ListView(
@@ -673,11 +618,11 @@ Widget _buildSearchBar() {
             count: _filteredCategories.length,
             color: AppColors.purple500,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 15),
           ..._filteredCategories.map((cat) => _buildCategoryTile(cat)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 25),
         ],
-
+        const SizedBox(width: 8),
         // ═══════════════════════════════════════════════
         // SECCIÓN: PRODUCTOS
         // ═══════════════════════════════════════════════
@@ -686,9 +631,9 @@ Widget _buildSearchBar() {
             icon: Icons.inventory_2_rounded,
             title: "Productos",
             count: _filteredProducts.length,
-            color: AppColors.green500,
+            color: AppColors.purple500,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 15),
           ...visibleProducts.map((prod) => _buildProductTile(prod)),
           if (hasMoreProducts) _buildLoadMoreButton(),
         ],
@@ -715,11 +660,7 @@ Widget _buildSearchBar() {
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: color,
-            ),
+            child: Icon(icon, size: 16, color: color),
           ),
           const SizedBox(width: 8),
           Text(
@@ -774,10 +715,7 @@ Widget _buildSearchBar() {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              "Busca en la tienda",
-              style: AppText.subtitle,
-            ),
+            Text("Busca en la tienda", style: AppText.subtitle),
             const SizedBox(height: 8),
             Text(
               "Escribe al menos 2 caracteres\npara buscar categorías y productos",
@@ -816,10 +754,7 @@ Widget _buildSearchBar() {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              "Sin resultados",
-              style: AppText.subtitle,
-            ),
+            Text("Sin resultados", style: AppText.subtitle),
             const SizedBox(height: 8),
             Text(
               "No encontramos categorías ni productos\ncon \"$_searchText\"",
@@ -872,13 +807,9 @@ Widget _buildSearchBar() {
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppColors.purple200,
-                width: 1.5,
-              ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.purple500.withOpacity(0.08),
+                  color: AppColors.green500.withOpacity(0.08),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -892,10 +823,7 @@ Widget _buildSearchBar() {
                   height: 50,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        AppColors.purple100,
-                        AppColors.purple50,
-                      ],
+                      colors: [AppColors.green100, AppColors.green50],
                     ),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -908,7 +836,7 @@ Widget _buildSearchBar() {
                   ),
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Nombre y etiqueta
                 Expanded(
                   child: Column(
@@ -924,39 +852,20 @@ Widget _buildSearchBar() {
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.purple50,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          "Categoría",
-                          style: AppText.small.copyWith(
-                            color: AppColors.purple600,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                
+
                 // Flecha
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.purple50,
+                    color: AppColors.green50,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: AppColors.purple500,
+                    color: AppColors.green500,
                     size: 14,
                   ),
                 ),
@@ -1088,7 +997,7 @@ Widget _buildSearchBar() {
                   ],
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Info
                 Expanded(
                   child: Column(
@@ -1102,8 +1011,8 @@ Widget _buildSearchBar() {
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                           height: 1.2,
-                          color: isAvailable 
-                              ? AppColors.textDark 
+                          color: isAvailable
+                              ? AppColors.textDark
                               : Colors.grey.shade500,
                         ),
                       ),
@@ -1111,8 +1020,8 @@ Widget _buildSearchBar() {
                       Text(
                         "${price.toStringAsFixed(2)} €",
                         style: AppText.body.copyWith(
-                          color: isAvailable 
-                              ? AppColors.green600 
+                          color: isAvailable
+                              ? AppColors.green600
                               : Colors.grey.shade500,
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
@@ -1121,7 +1030,7 @@ Widget _buildSearchBar() {
                     ],
                   ),
                 ),
-                
+
                 // Badge agotado
                 if (!isAvailable)
                   Container(
@@ -1133,10 +1042,7 @@ Widget _buildSearchBar() {
                     decoration: BoxDecoration(
                       color: Colors.red.shade50,
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: Colors.red.shade200,
-                        width: 1,
-                      ),
+                      border: Border.all(color: Colors.red.shade200, width: 1),
                     ),
                     child: Text(
                       "Agotado",
@@ -1147,20 +1053,20 @@ Widget _buildSearchBar() {
                       ),
                     ),
                   ),
-                
+
                 // Flecha
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isAvailable 
-                        ? AppColors.green50 
+                    color: isAvailable
+                        ? AppColors.green50
                         : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: isAvailable 
-                        ? AppColors.green500 
+                    color: isAvailable
+                        ? AppColors.green500
                         : Colors.grey.shade400,
                     size: 14,
                   ),
@@ -1186,10 +1092,7 @@ Widget _buildSearchBar() {
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.green200,
-            width: 1.5,
-          ),
+          border: Border.all(color: AppColors.green200, width: 1.5),
         ),
         child: Material(
           color: Colors.transparent,
@@ -1282,10 +1185,7 @@ Widget _buildSearchBar() {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),

@@ -57,29 +57,6 @@ class _MenuDrawerState extends State<MenuDrawer> {
                           onTap: () => _navigateTo(context, '/tienda'),
                         ),
 
-                        // ═══════════════════════════════════════
-                        // ESCÁNER DE CÓDIGO DE BARRAS ← NUEVO
-                        // ═══════════════════════════════════════
-                        _MenuLink(
-                          icon: Icons.qr_code_scanner_rounded,
-                          label: "Escanear producto",
-                          onTap: () => _openScanner(context),
-                          highlighted: true, // Destacado
-                        ),
-
-                        // ═══════════════════════════════════════
-                        // OFERTAS - DESACTIVADO
-                        // ═══════════════════════════════════════
-                        _MenuLink(
-                          icon: Icons.local_offer_rounded,
-                          label: "Ofertas",
-                          onTap: () {},
-                          enabled: false,
-                          badge: "Próximamente",
-                        ),
-
-                        _buildDivider(),
-
                         _MenuLink(
                           icon: Icons.chat_rounded,
                           label: "Chat",
@@ -89,6 +66,15 @@ class _MenuDrawerState extends State<MenuDrawer> {
                           icon: Icons.shopping_cart_rounded,
                           label: "Carrito",
                           onTap: () => _navigateTo(context, '/carrito'),
+                        ),
+
+                        // ═══════════════════════════════════════
+                        // ESCÁNER DE CÓDIGO DE BARRAS
+                        // ═══════════════════════════════════════
+                        _MenuLink(
+                          icon: Icons.qr_code_scanner_rounded,
+                          label: "Escanear producto",
+                          onTap: () => _openScanner(context),
                         ),
 
                         _buildDivider(),
@@ -128,12 +114,9 @@ class _MenuDrawerState extends State<MenuDrawer> {
     Navigator.pop(context); // Cerrar menú
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const ScannerPage(),
-      ),
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
     );
   }
-
 
   Widget _buildPoliciesSection() {
     return Column(
@@ -150,10 +133,13 @@ class _MenuDrawerState extends State<MenuDrawer> {
               },
               borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
-                  color: _isPoliciesExpanded 
-                      ? AppColors.purple50 
+                  color: _isPoliciesExpanded
+                      ? AppColors.purple50
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -161,15 +147,10 @@ class _MenuDrawerState extends State<MenuDrawer> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: _isPoliciesExpanded 
-                            ? AppColors.purple200 
-                            : AppColors.purple100,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+
                       child: Icon(
                         Icons.policy_rounded,
-                        color: AppColors.purple600,
+                        color: AppColors.purple800,
                         size: 20,
                       ),
                     ),
@@ -188,8 +169,8 @@ class _MenuDrawerState extends State<MenuDrawer> {
                       duration: const Duration(milliseconds: 200),
                       child: Icon(
                         Icons.chevron_right_rounded,
-                        color: _isPoliciesExpanded 
-                            ? AppColors.purple500 
+                        color: _isPoliciesExpanded
+                            ? AppColors.purple800
                             : Colors.grey.shade400,
                         size: 22,
                       ),
@@ -217,9 +198,7 @@ class _MenuDrawerState extends State<MenuDrawer> {
       margin: const EdgeInsets.only(left: 24, top: 4),
       padding: const EdgeInsets.only(left: 16),
       decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: AppColors.purple200, width: 2),
-        ),
+        border: Border(left: BorderSide(color: AppColors.purple800, width: 2)),
       ),
       child: Column(
         children: [
@@ -258,13 +237,10 @@ class _MenuDrawerState extends State<MenuDrawer> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.green100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+
                 child: const Icon(
                   Icons.local_pharmacy_rounded,
-                  color: AppColors.green600,
+                  color: AppColors.purple600,
                   size: 24,
                 ),
               ),
@@ -317,7 +293,7 @@ class _MenuDrawerState extends State<MenuDrawer> {
           ),
           const SizedBox(height: 4),
           Text(
-            "© 2024 Todos los derechos reservados",
+            "© 2026 Todos los derechos reservados a Womunika",
             style: AppText.small.copyWith(
               color: Colors.grey.shade400,
               fontSize: 11,
@@ -369,18 +345,15 @@ class _MenuLink extends StatelessWidget {
               children: [
                 // Icono
                 Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: highlighted
-                        ? AppColors.purple100
-                        : (enabled ? AppColors.purple100 : Colors.grey.shade200),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  padding: const EdgeInsets.all(4),
+
                   child: Icon(
                     icon,
                     color: highlighted
-                        ? AppColors.purple600
-                        : (enabled ? AppColors.purple600 : Colors.grey.shade400),
+                        ? AppColors.purple800
+                        : (enabled
+                              ? AppColors.purple800
+                              : Colors.grey.shade400),
                     size: 20,
                   ),
                 ),
@@ -397,8 +370,10 @@ class _MenuLink extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                           color: highlighted
-                              ? AppColors.purple700
-                              : (enabled ? AppColors.textDark : Colors.grey.shade400),
+                              ? AppColors.purple800
+                              : (enabled
+                                    ? AppColors.textDark
+                                    : Colors.grey.shade400),
                         ),
                       ),
                       if (badge != null) ...[
@@ -470,7 +445,7 @@ class _PolicySubItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.purple400, size: 18),
+              Icon(icon, color: AppColors.purple800, size: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

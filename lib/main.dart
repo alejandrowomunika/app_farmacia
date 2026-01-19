@@ -2,16 +2,21 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:app_farmacia/pages/SplashAnimated.dart';
 import 'package:app_farmacia/pages/carrito.dart';
-import 'package:app_farmacia/pages/producto.dart';      
+import 'package:app_farmacia/pages/producto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'widgets/header.dart';
-import 'widgets/footer.dart';  
+import 'widgets/footer.dart';
 import 'pages/tienda.dart';
 import 'pages/user.dart';
 import 'pages/chat.dart';
+import 'pages/aviso_legal.dart';
+import 'pages/politica_privacidad.dart';
+import 'pages/politica_cookies.dart';
+import 'pages/politica_envios.dart';
+import 'pages/contacto.dart';
 
 import 'theme/app_theme.dart';
 
@@ -54,10 +59,16 @@ class MainApp extends StatelessWidget {
         '/splash': (context) => SplashAnimated(),
         '/producto': (context) {
           final args =
-              ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>;
           return ProductPage(id: args['id']);
         },
         "/carrito": (context) => const CarritoPage(),
+        '/aviso-legal': (context) => const AvisoLegal(),
+        '/politica-privacidad': (context) => const PoliticaPrivacidad(),
+        '/politica-cookies': (context) => const PoliticaCookies(),
+        '/politica-envios': (context) => const PoliticaEnvios(),
+        '/contacto': (context) => const Contacto(),
       },
     );
   }
@@ -96,11 +107,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _initializeData() async {
-    await Future.wait([
-      _loadSliderImages(),
-      fetchProducts(),
-      fetchProducts2(),
-    ]);
+    await Future.wait([_loadSliderImages(), fetchProducts(), fetchProducts2()]);
   }
 
   // ─────────────────────────────────────────────────────────
@@ -244,9 +251,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
           final stockDecoded = json.decode(stockResp.body);
           if (stockDecoded["stock_availables"] is List &&
               stockDecoded["stock_availables"].isNotEmpty) {
-            stock = int.tryParse(
+            stock =
+                int.tryParse(
                   stockDecoded["stock_availables"][0]["quantity"].toString(),
-                ) ?? 0;
+                ) ??
+                0;
           }
         }
 
@@ -254,7 +263,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
         int imgId = 0;
         if (p["associations"]?["images"] is List &&
             p["associations"]["images"].isNotEmpty) {
-          imgId = int.tryParse(p["associations"]["images"][0]["id"].toString()) ?? 0;
+          imgId =
+              int.tryParse(p["associations"]["images"][0]["id"].toString()) ??
+              0;
         }
 
         String imageUrl = imgId > 0 ? buildPrestashopImageUrl(imgId) : "";
@@ -319,16 +330,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
           final stockDecoded = json.decode(stockResp.body);
           if (stockDecoded["stock_availables"] is List &&
               stockDecoded["stock_availables"].isNotEmpty) {
-            stock = int.tryParse(
+            stock =
+                int.tryParse(
                   stockDecoded["stock_availables"][0]["quantity"].toString(),
-                ) ?? 0;
+                ) ??
+                0;
           }
         }
 
         int imgId = 0;
         if (p["associations"]?["images"] is List &&
             p["associations"]["images"].isNotEmpty) {
-          imgId = int.tryParse(p["associations"]["images"][0]["id"].toString()) ?? 0;
+          imgId =
+              int.tryParse(p["associations"]["images"][0]["id"].toString()) ??
+              0;
         }
 
         String imageUrl = imgId > 0 ? buildPrestashopImageUrl(imgId) : "";
@@ -372,12 +387,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                   // CARRUSEL DE CATEGORÍAS
                   _buildCategoryCarousel(),
-                  
+
                   const SizedBox(height: 12),
 
                   // SLIDESHOW PRINCIPAL
                   _buildMainSlider(),
-                  
+
                   const SizedBox(height: 16),
 
                   // BANNER CHAT/ASISTENTE
@@ -402,10 +417,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             // ─────────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Column(
-                children: [
-                  const SizedBox(height: 30),
-                  _buildSecondarySlider(),
-                ],
+                children: [const SizedBox(height: 30), _buildSecondarySlider()],
               ),
             ),
 
@@ -421,9 +433,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
 
             // Espacio final
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 30),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 30)),
           ],
         ),
       ),
@@ -467,11 +477,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                info.icon,
-                color: info.color,
-                size: 28,
-              ),
+              Icon(info.icon, color: info.color, size: 28),
               const SizedBox(height: 6),
               SizedBox(
                 width: 80,
@@ -516,31 +522,29 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
           child: loadingSlider
               ? const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.green500,
-                  ),
+                  child: CircularProgressIndicator(color: AppColors.green500),
                 )
               : slider1Images.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported_outlined,
-                            size: 48,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            "No hay imágenes disponibles",
-                            style: AppText.body.copyWith(
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_not_supported_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
                       ),
-                    )
-                  : FadeImageCarousel(images: slider1Images),
+                      const SizedBox(height: 12),
+                      Text(
+                        "No hay imágenes disponibles",
+                        style: AppText.body.copyWith(
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : FadeImageCarousel(images: slider1Images),
         ),
       ),
     );
@@ -594,9 +598,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   size: 36,
                 ),
               ),
-              
+
               const SizedBox(width: 16),
-              
+
               // Texto
               Expanded(
                 child: Column(
@@ -615,8 +619,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    
-                    // Badge "Próximamente" - Purple como detalle
+
+                    // Badge "Próximamente"
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -625,9 +629,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.purple100,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppColors.purple200,
-                        ),
+                        border: Border.all(color: AppColors.purple200),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -652,7 +654,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ],
                 ),
               ),
-              
+
               // Flecha
               Container(
                 padding: const EdgeInsets.all(8),
@@ -763,9 +765,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Carrusel de productos
             SizedBox(
               height: 265,
@@ -809,10 +811,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.purple200,
-              width: 2,
-            ),
+            border: Border.all(color: AppColors.purple200, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -886,13 +885,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: CircularProgressIndicator(color: AppColors.green500),
                 )
               : slider2Images.isEmpty
-                  ? Center(
-                      child: Text(
-                        "No hay imágenes disponibles",
-                        style: AppText.body.copyWith(color: Colors.grey.shade500),
-                      ),
-                    )
-                  : FadeImageCarouselSmall(images: slider2Images),
+              ? Center(
+                  child: Text(
+                    "No hay imágenes disponibles",
+                    style: AppText.body.copyWith(color: Colors.grey.shade500),
+                  ),
+                )
+              : FadeImageCarouselSmall(images: slider2Images),
         ),
       ),
     );
@@ -903,24 +902,114 @@ class _ProductsScreenState extends State<ProductsScreen> {
 // ENUM: CATEGORÍAS DEL CARRUSEL
 // ═══════════════════════════════════════════════════════════════════════════════
 enum CardInfo {
-  cuidadoCorporal('CUIDADO CORPORAL', Icons.spa_outlined, Color(0xff8E63D2), Color(0xffF1E8FF)),
-  optica('ÓPTICA', Icons.visibility_outlined, Color(0xff3A86FF), Color(0xffE4EFFF)),
-  medicacionFamiliar('MEDICACIÓN', Icons.medication_outlined, Color(0xffFF595E), Color(0xffFFE5E6)),
-  higieneCapilar('HIGIENE CAPILAR', Icons.water_drop_outlined, Color(0xff0096C7), Color(0xffDFF7FF)),
-  cuidadoPaciente('CUIDADO PACIENTE', Icons.health_and_safety_outlined, Color(0xff6A4C93), Color(0xffEFE7FF)),
-  formulacionMagistral('FORMULACIÓN', Icons.science_outlined, Color(0xffFF8500), Color(0xffFFF1DE)),
-  higieneBucodental('BUCODENTAL', Icons.brush_outlined, Color(0xff2A9D8F), Color(0xffDBFFF7)),
-  mobiliario('MOBILIARIO', Icons.chair_outlined, Color(0xff8D99AE), Color(0xffF4F6F8)),
-  dermocosmetica('DERMOCOSMÉTICA', Icons.face_outlined, Color(0xffF28482), Color(0xffFFECEC)),
-  solares('SOLARES', Icons.wb_sunny_outlined, Color(0xffFFB703), Color(0xffFFF7D9)),
-  dietetica('DIETÉTICA', Icons.restaurant_menu_outlined, Color(0xff52B788), Color(0xffE9FFF3)),
-  infantil('INFANTIL', Icons.child_friendly_outlined, Color(0xffFF9EAA), Color(0xffFFE8EC)),
-  ortopedia('ORTOPEDIA', Icons.accessibility_new_outlined, Color(0xff4C6EF5), Color(0xffE5EBFF)),
-  covid('COVID', Icons.coronavirus_outlined, Color(0xffE63946), Color(0xffFFE6E8)),
-  terapiasNaturales('TERAPIAS NAT.', Icons.eco_outlined, Color(0xff2A9D8F), Color(0xffDBFFF7)),
-  veterinaria('VETERINARIA', Icons.pets_outlined, Color(0xff7F4F24), Color(0xffF5EDE3)),
-  saludSexual('SALUD SEXUAL', Icons.favorite_outline, Color(0xffFF006E), Color(0xffFFD6E8)),
-  homeopatia('HOMEOPATÍA', Icons.opacity_outlined, Color(0xff38A3A5), Color(0xffE9FFFB));
+  cuidadoCorporal(
+    'CUIDADO CORPORAL',
+    Icons.spa_outlined,
+    Color(0xff8E63D2),
+    Color(0xffF1E8FF),
+  ),
+  optica(
+    'ÓPTICA',
+    Icons.visibility_outlined,
+    Color(0xff3A86FF),
+    Color(0xffE4EFFF),
+  ),
+  medicacionFamiliar(
+    'MEDICACIÓN',
+    Icons.medication_outlined,
+    Color(0xffFF595E),
+    Color(0xffFFE5E6),
+  ),
+  higieneCapilar(
+    'HIGIENE CAPILAR',
+    Icons.water_drop_outlined,
+    Color(0xff0096C7),
+    Color(0xffDFF7FF),
+  ),
+  cuidadoPaciente(
+    'CUIDADO PACIENTE',
+    Icons.health_and_safety_outlined,
+    Color(0xff6A4C93),
+    Color(0xffEFE7FF),
+  ),
+  formulacionMagistral(
+    'FORMULACIÓN',
+    Icons.science_outlined,
+    Color(0xffFF8500),
+    Color(0xffFFF1DE),
+  ),
+  higieneBucodental(
+    'BUCODENTAL',
+    Icons.brush_outlined,
+    Color(0xff2A9D8F),
+    Color(0xffDBFFF7),
+  ),
+  mobiliario(
+    'MOBILIARIO',
+    Icons.chair_outlined,
+    Color(0xff8D99AE),
+    Color(0xffF4F6F8),
+  ),
+  dermocosmetica(
+    'DERMOCOSMÉTICA',
+    Icons.face_outlined,
+    Color(0xffF28482),
+    Color(0xffFFECEC),
+  ),
+  solares(
+    'SOLARES',
+    Icons.wb_sunny_outlined,
+    Color(0xffFFB703),
+    Color(0xffFFF7D9),
+  ),
+  dietetica(
+    'DIETÉTICA',
+    Icons.restaurant_menu_outlined,
+    Color(0xff52B788),
+    Color(0xffE9FFF3),
+  ),
+  infantil(
+    'INFANTIL',
+    Icons.child_friendly_outlined,
+    Color(0xffFF9EAA),
+    Color(0xffFFE8EC),
+  ),
+  ortopedia(
+    'ORTOPEDIA',
+    Icons.accessibility_new_outlined,
+    Color(0xff4C6EF5),
+    Color(0xffE5EBFF),
+  ),
+  covid(
+    'COVID',
+    Icons.coronavirus_outlined,
+    Color(0xffE63946),
+    Color(0xffFFE6E8),
+  ),
+  terapiasNaturales(
+    'TERAPIAS NAT.',
+    Icons.eco_outlined,
+    Color(0xff2A9D8F),
+    Color(0xffDBFFF7),
+  ),
+  veterinaria(
+    'VETERINARIA',
+    Icons.pets_outlined,
+    Color(0xff7F4F24),
+    Color(0xffF5EDE3),
+  ),
+  saludSexual(
+    'SALUD SEXUAL',
+    Icons.favorite_outline,
+    Color(0xffFF006E),
+    Color(0xffFFD6E8),
+  ),
+  homeopatia(
+    'HOMEOPATÍA',
+    Icons.opacity_outlined,
+    Color(0xff38A3A5),
+    Color(0xffE9FFFB),
+  );
 
   const CardInfo(this.label, this.icon, this.color, this.backgroundColor);
   final String label;
@@ -985,7 +1074,9 @@ class _InfiniteCarouselState extends State<InfiniteCarousel> {
       onPointerDown: (_) => _isUserInteracting = true,
       onPointerUp: (_) {
         _isUserInteracting = false;
-        final page = _controller.hasClients ? (_controller.page?.round()) : null;
+        final page = _controller.hasClients
+            ? (_controller.page?.round())
+            : null;
         if (page != null) _currentPage = page;
       },
       onPointerCancel: (_) => _isUserInteracting = false,
@@ -1106,37 +1197,37 @@ class _FadeImageCarouselState extends State<FadeImageCarousel> {
                 ),
               )
             : isNetwork
-                ? CachedNetworkImage(
-                    key: ValueKey(img),
-                    imageUrl: img,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    fadeInDuration: const Duration(milliseconds: 350),
-                    placeholder: (_, __) => Container(
-                      color: AppColors.background,
-                      child: const Center(
-                        child: CircularProgressIndicator(color: AppColors.green500),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      color: AppColors.background,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image_outlined,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  )
-                : Image.asset(
-                    img,
-                    key: ValueKey(img),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
+            ? CachedNetworkImage(
+                key: ValueKey(img),
+                imageUrl: img,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                fadeInDuration: const Duration(milliseconds: 350),
+                placeholder: (_, __) => Container(
+                  color: AppColors.background,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: AppColors.green500),
                   ),
+                ),
+                errorWidget: (_, __, ___) => Container(
+                  color: AppColors.background,
+                  child: const Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              )
+            : Image.asset(
+                img,
+                key: ValueKey(img),
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              ),
       ),
     );
   }

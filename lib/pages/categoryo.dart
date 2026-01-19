@@ -31,19 +31,13 @@ class _CategoryPageState extends State<CategoryPage> {
   String _searchText = '';
 
   // ═══════════════════════════════════════════════════════════
-  // SUBCATEGORÍAS Y FILTROS
+  // NUEVO: SUBCATEGORÍAS Y FILTROS
   // ═══════════════════════════════════════════════════════════
   List<Map<String, dynamic>> _subcategories = [];
-  Map<String, List<String>> _subcategoryDescendants = {};
-  String? _selectedSubcategoryId;
+  Map<String, List<String>> _subcategoryDescendants =
+      {}; // Mapa de subcategoría -> todos sus descendientes
+  String? _selectedSubcategoryId; // null = "Todas"
   bool _loadingSubcategories = true;
-
-  // ═══════════════════════════════════════════════════════════
-  // CONTROL DEL STICKY FILTER
-  // ═══════════════════════════════════════════════════════════
-  final ScrollController _scrollController = ScrollController();
-  bool _isFilterSticky = false;
-  final double _stickyThreshold = 200;
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -58,33 +52,27 @@ class _CategoryPageState extends State<CategoryPage> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _initializeData();
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _subcategoryScrollController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    final isSticky = _scrollController.offset > _stickyThreshold;
-    if (isSticky != _isFilterSticky) {
-      setState(() => _isFilterSticky = isSticky);
-    }
-  }
-
   Future<void> _initializeData() async {
     await Future.wait([_fetchSubcategories(), _fetchProducts()]);
   }
 
+  // ─────────────────────────────────────────────────────────
+  // NAVEGACIÓN FOOTER
+  // ─────────────────────────────────────────────────────────
   void onFooterTap(int index) {
     setState(() => selectedIndex = index);
+
     switch (index) {
       case 0:
         Navigator.pushReplacementNamed(context, '/');
@@ -102,7 +90,7 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // CARGAR SUBCATEGORÍAS
+  // CARGAR SUBCATEGORÍAS (SOLO NIVEL 1 - HIJAS DIRECTAS)
   // ═══════════════════════════════════════════════════════════
   Future<void> _fetchSubcategories() async {
     final String parentId = widget.category['id'].toString();
@@ -141,6 +129,7 @@ class _CategoryPageState extends State<CategoryPage> {
             final id = (it['id'] ?? it['id_category'])?.toString();
             var name = it['name'];
 
+            // Manejar nombre multilenguaje de PrestaShop
             if (name is Map && name['language'] is List) {
               name = name['language'][0]['value'] ?? 'Subcategoría';
             }
@@ -151,6 +140,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 'name': name?.toString() ?? 'Subcategoría',
               });
 
+              // Cargar descendientes de esta subcategoría
               final descendants = await _getAllSubcategoryIds(id);
               _subcategoryDescendants[id] = [id, ...descendants];
             }
@@ -170,6 +160,9 @@ class _CategoryPageState extends State<CategoryPage> {
     }
   }
 
+  // ─────────────────────────────────────────────────────────
+  // OBTENER SUBCATEGORÍAS RECURSIVAMENTE (TODOS LOS NIVELES)
+  // ─────────────────────────────────────────────────────────
   Future<List<String>> _getAllSubcategoryIds(String parentId) async {
     final List<String> result = [];
     List<String> currentLevel = [parentId];
@@ -198,6 +191,10 @@ class _CategoryPageState extends State<CategoryPage> {
             }
           } else if (data.containsKey('category')) {
             rawItems = (data['category'] as List<dynamic>?) ?? [];
+          } else {
+            data.forEach((k, v) {
+              if (rawItems.isEmpty && v is List) rawItems = v;
+            });
           }
         }
 
@@ -206,7 +203,8 @@ class _CategoryPageState extends State<CategoryPage> {
         final List<String> nextLevel = [];
         for (final it in rawItems) {
           if (it is Map<String, dynamic>) {
-            final id = (it['id'] ?? it['id_category'])?.toString();
+            final id = (it['id'] ?? it['id_category'] ?? it['category_id'])
+                ?.toString();
             if (id != null && id.isNotEmpty) {
               result.add(id);
               nextLevel.add(id);
@@ -216,6 +214,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
         currentLevel = nextLevel;
       } catch (e) {
+        debugPrint('getAllSubcategoryIds error: $e');
         break;
       }
     }
@@ -223,6 +222,9 @@ class _CategoryPageState extends State<CategoryPage> {
     return result.toSet().toList();
   }
 
+  // ─────────────────────────────────────────────────────────
+  // FETCH PRODUCTOS
+  // ─────────────────────────────────────────────────────────
   Future<void> _fetchProducts() async {
     if (!mounted) return;
     setState(() {
@@ -233,12 +235,14 @@ class _CategoryPageState extends State<CategoryPage> {
     try {
       final String idCat = widget.category['id'].toString();
 
+      // Obtener todas las subcategorías
       List<String> allIds = [idCat];
       final subIds = await _getAllSubcategoryIds(idCat);
       if (!mounted) return;
       allIds.addAll(subIds);
       allIds = allIds.toSet().toList();
 
+      // Construir filtro
       final filter = '[${allIds.join('|')}]';
 
       final url =
@@ -261,14 +265,20 @@ class _CategoryPageState extends State<CategoryPage> {
       }
 
       final List<Map<String, dynamic>> products = items.map((it) {
+        final pid = it['id']?.toString() ?? '';
+        final name = it['name']?.toString() ?? 'Producto';
+        final price = it['price']?.toString() ?? '';
+        final imgId = it['id_default_image']?.toString() ?? '';
+        final categoryId = it['id_category_default']?.toString() ?? '';
+        final imgUrl = buildPrestashopImageUrl(imgId);
+
         return {
-          'id': it['id']?.toString() ?? '',
-          'name': it['name']?.toString() ?? 'Producto',
-          'price': it['price']?.toString() ?? '',
-          'image': buildPrestashopImageUrl(
-            it['id_default_image']?.toString() ?? '',
-          ),
-          'categoryId': it['id_category_default']?.toString() ?? '',
+          'id': pid,
+          'name': name,
+          'price': price,
+          'image': imgUrl,
+          'categoryId':
+              categoryId, // ← IMPORTANTE: Guardar la categoría del producto
         };
       }).toList();
 
@@ -282,6 +292,7 @@ class _CategoryPageState extends State<CategoryPage> {
         _loading = false;
       });
 
+      // Aplicar filtros después de cargar
       _applyFilters();
     } catch (e) {
       debugPrint('❌ Error: $e');
@@ -293,9 +304,13 @@ class _CategoryPageState extends State<CategoryPage> {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // APLICAR FILTROS (SUBCATEGORÍA + BÚSQUEDA)
+  // ═══════════════════════════════════════════════════════════
   void _applyFilters() {
     List<Map<String, dynamic>> result = List.from(_products);
 
+    // 1. Filtrar por subcategoría seleccionada
     if (_selectedSubcategoryId != null) {
       final allowedCategories =
           _subcategoryDescendants[_selectedSubcategoryId] ??
@@ -306,6 +321,7 @@ class _CategoryPageState extends State<CategoryPage> {
       }).toList();
     }
 
+    // 2. Filtrar por texto de búsqueda
     if (_searchText.isNotEmpty) {
       result = result.where((p) {
         return p['name'].toString().toLowerCase().contains(
@@ -314,6 +330,7 @@ class _CategoryPageState extends State<CategoryPage> {
       }).toList();
     }
 
+    // Aplicar límite
     final limited = result.length > _maxProducts
         ? result.sublist(0, _maxProducts)
         : result;
@@ -352,18 +369,6 @@ class _CategoryPageState extends State<CategoryPage> {
     _applyFilters();
   }
 
-  String _getSelectedSubcategoryName() {
-    if (_selectedSubcategoryId == null) return "Todas";
-    final subcat = _subcategories.firstWhere(
-      (s) => s['id'] == _selectedSubcategoryId,
-      orElse: () => {'name': 'Subcategoría'},
-    );
-    return subcat['name'] ?? 'Subcategoría';
-  }
-
-  bool get _hasActiveFilters =>
-      _selectedSubcategoryId != null || _searchText.isNotEmpty;
-
   // ═══════════════════════════════════════════════════════════
   // BUILD PRINCIPAL
   // ═══════════════════════════════════════════════════════════
@@ -375,13 +380,6 @@ class _CategoryPageState extends State<CategoryPage> {
         child: Column(
           children: [
             const AppHeader(),
-
-            // ═══════════════════════════════════════════
-            // STICKY FILTER SIMPLE
-            // ═══════════════════════════════════════════
-            if (_isFilterSticky && _subcategories.isNotEmpty)
-              _buildStickyFilterBar(),
-
             Expanded(
               child: _loading
                   ? _buildLoadingState()
@@ -400,301 +398,7 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: BARRA DE FILTRO STICKY SIMPLE
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildStickyFilterBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Selector de subcategoría
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showSubcategoryPicker(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: _selectedSubcategoryId != null
-                      ? AppColors.purple50
-                      : AppColors.background,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _selectedSubcategoryId != null
-                        ? AppColors.purple300
-                        : Colors.grey.shade300,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.filter_list_rounded,
-                      color: _selectedSubcategoryId != null
-                          ? AppColors.purple600
-                          : Colors.grey.shade500,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _getSelectedSubcategoryName(),
-                        style: AppText.small.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: _selectedSubcategoryId != null
-                              ? AppColors.purple700
-                              : AppColors.textDark,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Colors.grey.shade500,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Botón Limpiar (solo si hay filtros activos)
-          if (_hasActiveFilters) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _clearAllFilters,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.purple100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  "Limpiar",
-                  style: AppText.small.copyWith(
-                    color: AppColors.purple700,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // MODAL: SELECTOR DE SUBCATEGORÍAS
-  // ═══════════════════════════════════════════════════════════
-  void _showSubcategoryPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
-        ),
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.purple100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.category_rounded,
-                      color: AppColors.purple700,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Seleccionar subcategoría",
-                          style: AppText.subtitle.copyWith(fontSize: 16),
-                        ),
-                        Text(
-                          "${_subcategories.length + 1} opciones disponibles",
-                          style: AppText.small.copyWith(
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: Colors.grey.shade600,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Divider(color: Colors.grey.shade200, height: 1),
-
-            // Lista de opciones
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _subcategories.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _buildSubcategoryOption(
-                      id: null,
-                      name: "Todas las subcategorías",
-                      icon: Icons.grid_view_rounded,
-                      isSelected: _selectedSubcategoryId == null,
-                    );
-                  }
-
-                  final subcat = _subcategories[index - 1];
-                  return _buildSubcategoryOption(
-                    id: subcat['id'],
-                    name: subcat['name'],
-                    icon: Icons.folder_outlined,
-                    isSelected: _selectedSubcategoryId == subcat['id'],
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubcategoryOption({
-    required String? id,
-    required String name,
-    required IconData icon,
-    required bool isSelected,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            _selectSubcategory(id);
-            Navigator.pop(context);
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.purple100 : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: isSelected
-                  ? Border.all(color: AppColors.purple300, width: 1.5)
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected
-                      ? AppColors.purple700
-                      : Colors.grey.shade500,
-                  size: 22,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: AppText.body.copyWith(
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: isSelected
-                          ? AppColors.purple800
-                          : AppColors.textDark,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: AppColors.purple600,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check_rounded,
-                      color: AppColors.white,
-                      size: 14,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // ESTADOS
+  // ESTADO: CARGANDO
   // ═══════════════════════════════════════════════════════════
   Widget _buildLoadingState() {
     return Center(
@@ -717,6 +421,9 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ESTADO: ERROR
+  // ═══════════════════════════════════════════════════════════
   Widget _buildErrorState() {
     return Center(
       child: Padding(
@@ -740,7 +447,7 @@ class _CategoryPageState extends State<CategoryPage> {
             Text("¡Ups! Algo salió mal", style: AppText.subtitle),
             const SizedBox(height: 8),
             Text(
-              "No pudimos cargar los productos",
+              "No pudimos cargar los productos de esta categoría",
               textAlign: TextAlign.center,
               style: AppText.small.copyWith(
                 color: AppColors.textDark.withOpacity(0.6),
@@ -761,7 +468,10 @@ class _CategoryPageState extends State<CategoryPage> {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: const Text("Reintentar"),
+              label: Text(
+                "Reintentar",
+                style: AppText.button.copyWith(fontSize: 14),
+              ),
             ),
           ],
         ),
@@ -777,7 +487,6 @@ class _CategoryPageState extends State<CategoryPage> {
       onRefresh: _initializeData,
       color: AppColors.green500,
       child: CustomScrollView(
-        controller: _scrollController,
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
@@ -792,14 +501,20 @@ class _CategoryPageState extends State<CategoryPage> {
                   const SizedBox(height: 16),
                   _buildSearchBar(),
 
-                  // Filtro de subcategorías (cuando NO está sticky)
-                  if (_subcategories.isNotEmpty && !_isFilterSticky) ...[
+                  // ═══════════════════════════════════════════════
+                  // NUEVO: FILTRO POR SUBCATEGORÍAS
+                  // ═══════════════════════════════════════════════
+                  if (_subcategories.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     _buildSubcategoryFilter(),
                   ],
 
                   const SizedBox(height: 8),
                   _buildResultsInfo(),
+
+                  // Mostrar filtros activos
+                  if (_selectedSubcategoryId != null || _searchText.isNotEmpty)
+                    _buildActiveFilters(),
                 ],
               ),
             ),
@@ -808,7 +523,7 @@ class _CategoryPageState extends State<CategoryPage> {
           // Grid de productos
           _filteredProducts.isEmpty
               ? SliverFillRemaining(
-                  hasScrollBody: false,
+                  hasScrollBody: false, // ← CLAVE: evita el overflow
                   child: _buildEmptyState(),
                 )
               : SliverPadding(
@@ -837,9 +552,11 @@ class _CategoryPageState extends State<CategoryPage> {
                   ),
                 ),
 
+          // Botón "Ver más"
           if (_visibleCount < _filteredProducts.length)
             SliverToBoxAdapter(child: _buildLoadMoreButton()),
 
+          // Espacio final
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
       ),
@@ -847,15 +564,15 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: FILTRO POR SUBCATEGORÍAS (CHIPS SIMPLES)
+  // WIDGET: FILTRO POR SUBCATEGORÍAS (CHIPS HORIZONTALES)
   // ═══════════════════════════════════════════════════════════
   Widget _buildSubcategoryFilter() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header con título y botón limpiar
+        // Título de sección
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8, right: 4),
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Row(
             children: [
               Icon(
@@ -864,51 +581,28 @@ class _CategoryPageState extends State<CategoryPage> {
                 color: AppColors.textDark.withOpacity(0.5),
               ),
               const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  "Filtrar por subcategoría",
-                  style: AppText.small.copyWith(
-                    color: AppColors.textDark.withOpacity(0.5),
-                    fontWeight: FontWeight.w500,
-                  ),
+              Text(
+                "Filtrar por subcategoría",
+                style: AppText.small.copyWith(
+                  color: AppColors.textDark.withOpacity(0.5),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              // Botón Limpiar
-              if (_hasActiveFilters)
-                GestureDetector(
-                  onTap: _clearAllFilters,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.purple100,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      "Limpiar",
-                      style: AppText.small.copyWith(
-                        color: AppColors.purple700,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
 
+        // Chips horizontales
         SizedBox(
-          height: 36,
+          height: 40,
           child: ListView.builder(
             controller: _subcategoryScrollController,
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            itemCount: _subcategories.length + 1,
+            itemCount: _subcategories.length + 1, // +1 para "Todas"
             itemBuilder: (context, index) {
               if (index == 0) {
+                // Chip "Todas"
                 return _buildSubcategoryChip(
                   id: null,
                   name: "Todas",
@@ -937,35 +631,56 @@ class _CategoryPageState extends State<CategoryPage> {
     bool isFirst = false,
   }) {
     return Padding(
-      padding: EdgeInsets.only(left: isFirst ? 0 : 8),
+      padding: EdgeInsets.only(left: isFirst ? 0 : 8, right: 0),
       child: GestureDetector(
         onTap: () => _selectSubcategory(id),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.purple700 : AppColors.white,
-            borderRadius: BorderRadius.circular(18),
+            color: isSelected ? AppColors.green500 : AppColors.white,
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? AppColors.purple700 : Colors.grey.shade300,
+              color: isSelected ? AppColors.green500 : Colors.grey.shade300,
+              width: 1.5,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.purple700.withOpacity(0.25),
-                      blurRadius: 6,
+                      color: AppColors.green500.withOpacity(0.3),
+                      blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
                   ]
-                : null,
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
           ),
-          child: Text(
-            name,
-            style: AppText.small.copyWith(
-              color: isSelected ? AppColors.white : AppColors.textDark,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              fontSize: 13,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSelected && id == null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Icon(
+                    Icons.check_rounded,
+                    size: 16,
+                    color: AppColors.white,
+                  ),
+                ),
+              Text(
+                name,
+                style: AppText.small.copyWith(
+                  color: isSelected ? AppColors.white : AppColors.textDark,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -973,9 +688,134 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // RESTO DE WIDGETS
+  // WIDGET: FILTROS ACTIVOS
   // ═══════════════════════════════════════════════════════════
+  Widget _buildActiveFilters() {
+    // Obtener nombre de subcategoría seleccionada
+    String? subcategoryName;
+    if (_selectedSubcategoryId != null) {
+      final subcat = _subcategories.firstWhere(
+        (s) => s['id'] == _selectedSubcategoryId,
+        orElse: () => {},
+      );
+      subcategoryName = subcat['name'];
+    }
 
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.purple50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.purple200),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.filter_alt_outlined,
+              size: 18,
+              color: AppColors.purple600,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  if (subcategoryName != null)
+                    _buildActiveFilterTag(
+                      label: subcategoryName,
+                      icon: Icons.category_outlined,
+                      onRemove: () => _selectSubcategory(null),
+                    ),
+                  if (_searchText.isNotEmpty)
+                    _buildActiveFilterTag(
+                      label: '"$_searchText"',
+                      icon: Icons.search_rounded,
+                      onRemove: _clearSearch,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _clearAllFilters,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.purple100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  "Limpiar",
+                  style: AppText.small.copyWith(
+                    color: AppColors.purple600,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveFilterTag({
+    required String label,
+    required IconData icon,
+    required VoidCallback onRemove,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(
+        maxWidth: 200, // ← AÑADE ESTO: ancho máximo del tag
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.purple200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.purple500),
+          const SizedBox(width: 6),
+          Flexible(
+            // ← CAMBIA DE Text directo a Flexible > Text
+            child: Text(
+              label,
+              style: AppText.small.copyWith(
+                color: AppColors.purple700,
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+              ),
+              maxLines: 1, // ← AÑADE ESTO
+              overflow: TextOverflow.ellipsis, // ← AÑADE ESTO
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: onRemove,
+            child: Icon(
+              Icons.close_rounded,
+              size: 14,
+              color: AppColors.purple400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: HEADER DE CATEGORÍA
+  // ═══════════════════════════════════════════════════════════
   Widget _buildCategoryHeader() {
     final label = widget.category['label'] ?? 'Categoría';
     final imageJpg = (widget.category['imageJpg'] ?? '').toString();
@@ -996,6 +836,7 @@ class _CategoryPageState extends State<CategoryPage> {
       ),
       child: Row(
         children: [
+          // Icono de categoría
           Container(
             width: 60,
             height: 60,
@@ -1015,7 +856,10 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
             ),
           ),
+
           const SizedBox(width: 16),
+
+          // Info de categoría
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1027,18 +871,22 @@ class _CategoryPageState extends State<CategoryPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
+
+                // Productos (siempre en primera línea)
                 Text(
                   "${_products.length} productos",
                   style: AppText.small.copyWith(
                     color: AppColors.textDark.withOpacity(0.5),
                   ),
                 ),
+
+                // Subcategorías (en segunda línea si existen)
                 if (_subcategories.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     "${_subcategories.length} subcategorías",
                     style: AppText.small.copyWith(
-                      color: AppColors.purple700,
+                      color: AppColors.purple500,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1046,13 +894,17 @@ class _CategoryPageState extends State<CategoryPage> {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              color: AppColors.green600,
+
+          // Botón volver
+          Container(
+            child: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: AppColors.green600,
+              ),
+              tooltip: 'Volver',
             ),
-            tooltip: 'Volver',
           ),
         ],
       ),
@@ -1061,6 +913,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
   Widget _buildCategoryIcon(String imageJpg, String imagePng) {
     final image = imageJpg.isNotEmpty ? imageJpg : imagePng;
+
     if (image.isEmpty) {
       return const Icon(
         Icons.category_outlined,
@@ -1077,14 +930,30 @@ class _CategoryPageState extends State<CategoryPage> {
         size: 32,
         color: AppColors.green400,
       ),
-      errorWidget: (_, __, ___) => const Icon(
-        Icons.category_outlined,
-        size: 32,
-        color: AppColors.green600,
-      ),
+      errorWidget: (_, __, ___) {
+        if (imagePng.isNotEmpty && image != imagePng) {
+          return CachedNetworkImage(
+            imageUrl: imagePng,
+            fit: BoxFit.contain,
+            errorWidget: (_, __, ___) => const Icon(
+              Icons.category_outlined,
+              size: 32,
+              color: AppColors.green600,
+            ),
+          );
+        }
+        return const Icon(
+          Icons.category_outlined,
+          size: 32,
+          color: AppColors.green600,
+        );
+      },
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: BARRA DE BÚSQUEDA
+  // ═══════════════════════════════════════════════════════════
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
@@ -1137,7 +1006,12 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: INFO DE RESULTADOS
+  // ═══════════════════════════════════════════════════════════
   Widget _buildResultsInfo() {
+    final hasFilters = _selectedSubcategoryId != null || _searchText.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
@@ -1146,16 +1020,14 @@ class _CategoryPageState extends State<CategoryPage> {
             width: 4,
             height: 16,
             decoration: BoxDecoration(
-              color: _hasActiveFilters
-                  ? AppColors.green500
-                  : AppColors.green500,
+              color: hasFilters ? AppColors.purple500 : AppColors.green500,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _hasActiveFilters
+              hasFilters
                   ? "${_filteredProducts.length} resultado${_filteredProducts.length != 1 ? 's' : ''} con filtros"
                   : "Mostrando ${min(_visibleCount, _filteredProducts.length)} de ${_filteredProducts.length}",
               style: AppText.small.copyWith(
@@ -1168,7 +1040,12 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: ESTADO VACÍO
+  // ═══════════════════════════════════════════════════════════
   Widget _buildEmptyState() {
+    final hasFilters = _selectedSubcategoryId != null || _searchText.isNotEmpty;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1178,29 +1055,25 @@ class _CategoryPageState extends State<CategoryPage> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: _hasActiveFilters
-                    ? AppColors.green50
-                    : AppColors.green50,
+                color: hasFilters ? AppColors.purple50 : AppColors.green50,
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                _hasActiveFilters
+                hasFilters
                     ? Icons.filter_alt_off_outlined
                     : Icons.inventory_2_outlined,
                 size: 48,
-                color: _hasActiveFilters
-                    ? AppColors.green400
-                    : AppColors.green400,
+                color: hasFilters ? AppColors.purple400 : AppColors.green400,
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              _hasActiveFilters ? "Sin resultados" : "No hay productos",
+              hasFilters ? "Sin resultados" : "No hay productos",
               style: AppText.subtitle,
             ),
             const SizedBox(height: 8),
             Text(
-              _hasActiveFilters
+              hasFilters
                   ? "No encontramos productos con los filtros actuales"
                   : "Esta categoría no tiene productos disponibles",
               textAlign: TextAlign.center,
@@ -1208,7 +1081,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 color: AppColors.textDark.withOpacity(0.6),
               ),
             ),
-            if (_hasActiveFilters) ...[
+            if (hasFilters) ...[
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 onPressed: _clearAllFilters,
@@ -1233,6 +1106,9 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: BOTÓN "VER MÁS"
+  // ═══════════════════════════════════════════════════════════
   Widget _buildLoadMoreButton() {
     final remaining = _filteredProducts.length - _visibleCount;
 
