@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
-import '../pages/scanner_page.dart'; // ← AÑADIR ESTE IMPORT
+import '../pages/scanner_page.dart';
+import '../widgets/language_selector.dart';
+import '../widgets/auto_text.dart';
+import '../providers/language_provider.dart';
 
 class MenuDrawer extends StatefulWidget {
   const MenuDrawer({super.key});
@@ -44,7 +48,7 @@ class _MenuDrawerState extends State<MenuDrawer> {
                     child: Column(
                       children: [
                         // ═══════════════════════════════════════
-                        // NAVEGACIÓN PRINCIPAL
+                        // NAVEGACIÓN - TODO TRADUCIDO
                         // ═══════════════════════════════════════
                         _MenuLink(
                           icon: Icons.home_rounded,
@@ -56,7 +60,6 @@ class _MenuDrawerState extends State<MenuDrawer> {
                           label: "Tienda",
                           onTap: () => _navigateTo(context, '/tienda'),
                         ),
-
                         _MenuLink(
                           icon: Icons.chat_rounded,
                           label: "Chat",
@@ -67,10 +70,6 @@ class _MenuDrawerState extends State<MenuDrawer> {
                           label: "Carrito",
                           onTap: () => _navigateTo(context, '/carrito'),
                         ),
-
-                        // ═══════════════════════════════════════
-                        // ESCÁNER DE CÓDIGO DE BARRAS
-                        // ═══════════════════════════════════════
                         _MenuLink(
                           icon: Icons.qr_code_scanner_rounded,
                           label: "Escanear producto",
@@ -86,6 +85,15 @@ class _MenuDrawerState extends State<MenuDrawer> {
                         ),
 
                         _buildPoliciesSection(),
+                        _buildDivider(),
+
+                        // ═══════════════════════════════════════
+                        // SELECTOR DE IDIOMA
+                        // ═══════════════════════════════════════
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: const LanguageSelector(),
+                        ),
                       ],
                     ),
                   ),
@@ -100,6 +108,57 @@ class _MenuDrawerState extends State<MenuDrawer> {
     );
   }
 
+  // ... resto de métodos igual pero usando AutoText ...
+
+  Widget _buildMenuHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                child: const Icon(
+                  Icons.local_pharmacy_rounded,
+                  color: AppColors.purple600,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AutoText("Menú", style: AppText.title.copyWith(fontSize: 18)),
+                  Text(
+                    "Farmacia Guerrero",
+                    style: AppText.small.copyWith(color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.close_rounded,
+                color: Colors.grey.shade600,
+                size: 22,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDivider() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -107,11 +166,8 @@ class _MenuDrawerState extends State<MenuDrawer> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ABRIR ESCÁNER ← NUEVO MÉTODO
-  // ═══════════════════════════════════════════════════════════
   void _openScanner(BuildContext context) {
-    Navigator.pop(context); // Cerrar menú
+    Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ScannerPage()),
@@ -126,11 +182,8 @@ class _MenuDrawerState extends State<MenuDrawer> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () {
-                setState(() {
-                  _isPoliciesExpanded = !_isPoliciesExpanded;
-                });
-              },
+              onTap: () =>
+                  setState(() => _isPoliciesExpanded = !_isPoliciesExpanded),
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -145,18 +198,14 @@ class _MenuDrawerState extends State<MenuDrawer> {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-
-                      child: Icon(
-                        Icons.policy_rounded,
-                        color: AppColors.purple800,
-                        size: 20,
-                      ),
+                    Icon(
+                      Icons.policy_rounded,
+                      color: AppColors.purple800,
+                      size: 20,
                     ),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: Text(
+                      child: AutoText(
                         "Políticas",
                         style: AppText.body.copyWith(
                           fontWeight: FontWeight.w600,
@@ -227,56 +276,6 @@ class _MenuDrawerState extends State<MenuDrawer> {
     );
   }
 
-  Widget _buildMenuHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-
-                child: const Icon(
-                  Icons.local_pharmacy_rounded,
-                  color: AppColors.purple600,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Menú", style: AppText.title.copyWith(fontSize: 18)),
-                  Text(
-                    "Farmacia Guerrero",
-                    style: AppText.small.copyWith(color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.close_rounded,
-                color: Colors.grey.shade600,
-                size: 22,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMenuFooter() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -292,8 +291,8 @@ class _MenuDrawerState extends State<MenuDrawer> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            "© 2026 Todos los derechos reservados a Womunika",
+          AutoText(
+            "© ${DateTime.now().year} Todos los derechos reservados",
             style: AppText.small.copyWith(
               color: Colors.grey.shade400,
               fontSize: 11,
@@ -311,23 +310,17 @@ class _MenuDrawerState extends State<MenuDrawer> {
 }
 
 // ═══════════════════════════════════════════════════════════
-// WIDGET: ENLACE DEL MENÚ (ACTUALIZADO CON highlighted)
+// WIDGETS CON TRADUCCIÓN AUTOMÁTICA
 // ═══════════════════════════════════════════════════════════
 class _MenuLink extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool enabled;
-  final String? badge;
-  final bool highlighted; // ← NUEVO
 
   const _MenuLink({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.enabled = true,
-    this.badge,
-    this.highlighted = false, // ← NUEVO
   });
 
   @override
@@ -337,79 +330,28 @@ class _MenuLink extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: enabled ? onTap : null,
+          onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                // Icono
-                Container(
-                  padding: const EdgeInsets.all(4),
-
-                  child: Icon(
-                    icon,
-                    color: highlighted
-                        ? AppColors.purple800
-                        : (enabled
-                              ? AppColors.purple800
-                              : Colors.grey.shade400),
-                    size: 20,
-                  ),
-                ),
+                Icon(icon, color: AppColors.purple800, size: 20),
                 const SizedBox(width: 14),
-
-                // Label
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: AppText.body.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: highlighted
-                              ? AppColors.purple800
-                              : (enabled
-                                    ? AppColors.textDark
-                                    : Colors.grey.shade400),
-                        ),
-                      ),
-                      if (badge != null) ...[
-                        const SizedBox(height: 2),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            badge!,
-                            style: AppText.small.copyWith(
-                              fontSize: 10,
-                              color: Colors.grey.shade500,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  // ← TRADUCCIÓN AUTOMÁTICA
+                  child: AutoText(
+                    label,
+                    style: AppText.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
-
-                // Flecha o candado
                 Icon(
-                  enabled
-                      ? Icons.chevron_right_rounded
-                      : Icons.lock_outline_rounded,
-                  color: highlighted
-                      ? Colors.grey.shade400
-                      : Colors.grey.shade400,
-                  size: enabled ? 22 : 18,
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey.shade400,
+                  size: 22,
                 ),
               ],
             ),
@@ -420,9 +362,6 @@ class _MenuLink extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// WIDGET: SUBITEM DE POLÍTICAS
-// ═══════════════════════════════════════════════════════════
 class _PolicySubItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -448,7 +387,8 @@ class _PolicySubItem extends StatelessWidget {
               Icon(icon, color: AppColors.purple800, size: 18),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
+                // ← TRADUCCIÓN AUTOMÁTICA
+                child: AutoText(
                   label,
                   style: AppText.small.copyWith(
                     fontWeight: FontWeight.w500,

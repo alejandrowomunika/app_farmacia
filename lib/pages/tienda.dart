@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:app_farmacia/widgets/auto_text.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
-
+import '../widgets/auto_text.dart';
+import '../pages/scanner_page.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
@@ -55,6 +57,13 @@ class _TiendaPageState extends State<TiendaPage> {
     }
   }
 
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
+  }
+
   // ─────────────────────────────────────────────────────────
   // FETCH CATEGORÍAS
   // ─────────────────────────────────────────────────────────
@@ -101,9 +110,10 @@ class _TiendaPageState extends State<TiendaPage> {
 
       for (final it in items ?? []) {
         if (it is Map<String, dynamic>) {
-          final id =
-              (it['id'] ?? it['id_category'] ?? it['category_id'])?.toString();
-          final name = (it['name'] ?? it['category_name']) ??
+          final id = (it['id'] ?? it['id_category'] ?? it['category_id'])
+              ?.toString();
+          final name =
+              (it['name'] ?? it['category_name']) ??
               ((it['name'] is Map && it['name']['language'] is List)
                   ? (it['name']['language'][0]['value'] ?? '')
                   : '');
@@ -140,7 +150,9 @@ class _TiendaPageState extends State<TiendaPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             const AppHeader(),
@@ -148,8 +160,8 @@ class _TiendaPageState extends State<TiendaPage> {
               child: _loading
                   ? _buildLoadingState()
                   : _error.isNotEmpty
-                      ? _buildErrorState()
-                      : _buildContent(),
+                  ? _buildErrorState()
+                  : _buildContent(),
             ),
           ],
         ),
@@ -157,6 +169,7 @@ class _TiendaPageState extends State<TiendaPage> {
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
@@ -174,7 +187,7 @@ class _TiendaPageState extends State<TiendaPage> {
             strokeWidth: 3,
           ),
           const SizedBox(height: 20),
-          Text(
+          AutoText(
             "Cargando categorías...",
             style: AppText.body.copyWith(
               color: AppColors.textDark.withOpacity(0.6),
@@ -208,12 +221,9 @@ class _TiendaPageState extends State<TiendaPage> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              "¡Ups! Algo salió mal",
-              style: AppText.subtitle,
-            ),
+            AutoText("¡Ups! Algo salió mal", style: AppText.subtitle),
             const SizedBox(height: 8),
-            Text(
+            AutoText(
               _error,
               textAlign: TextAlign.center,
               style: AppText.small.copyWith(
@@ -235,7 +245,7 @@ class _TiendaPageState extends State<TiendaPage> {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: Text(
+              label: AutoText(
                 "Reintentar",
                 style: AppText.button.copyWith(fontSize: 14),
               ),
@@ -257,7 +267,10 @@ class _TiendaPageState extends State<TiendaPage> {
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
-        padding: const EdgeInsets.all(16),
+        // ═══════════════════════════════════════════════════════
+        // PADDING MODIFICADO: añadido espacio inferior para el footer
+        // ═══════════════════════════════════════════════════════
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), // ← MODIFICADO
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -273,7 +286,10 @@ class _TiendaPageState extends State<TiendaPage> {
             // ─────────────────────────────────────────────────
             _buildCategoriesGrid(),
 
-            const SizedBox(height: 20),
+            // ─────────────────────────────────────────────────
+            // YA NO NECESITAMOS ESTE ESPACIO PORQUE ESTÁ EN EL PADDING
+            // ─────────────────────────────────────────────────
+            // const SizedBox(height: 20), // ← ELIMINADO
           ],
         ),
       ),
@@ -299,12 +315,12 @@ class _TiendaPageState extends State<TiendaPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              AutoText(
                 "Categorías",
                 style: AppText.title.copyWith(fontSize: 24),
               ),
               const SizedBox(height: 2),
-              Text(
+              AutoText(
                 "${_categories.length} categorías disponibles",
                 style: AppText.small.copyWith(
                   color: AppColors.textDark.withOpacity(0.5),
@@ -325,14 +341,15 @@ class _TiendaPageState extends State<TiendaPage> {
       builder: (context, constraints) {
         // Calcular altura basada en el factor de escala de texto
         final textScaleFactor = MediaQuery.of(context).textScaleFactor;
-        
+
         // Altura base ajustada según el tamaño de texto
         // A mayor escala de texto, mayor altura de la tarjeta
         final baseHeight = 120.0;
         final adjustedHeight = baseHeight * (0.8 + (textScaleFactor * 0.3));
-        
+
         // Calcular el aspect ratio dinámicamente
-        final cardWidth = (constraints.maxWidth - 12) / 2; // 12 es el crossAxisSpacing
+        final cardWidth =
+            (constraints.maxWidth - 12) / 2; // 12 es el crossAxisSpacing
         final aspectRatio = cardWidth / adjustedHeight;
 
         return GridView.builder(
@@ -466,10 +483,7 @@ class _CategoryCardState extends State<_CategoryCard> {
                             height: 40,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [
-                                  AppColors.green100,
-                                  AppColors.green50,
-                                ],
+                                colors: [AppColors.green100, AppColors.green50],
                               ),
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -489,7 +503,7 @@ class _CategoryCardState extends State<_CategoryCard> {
                           // ─────────────────────────────────────────
                           Flexible(
                             flex: 2,
-                            child: Text(
+                            child: AutoText(
                               widget.name,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -512,7 +526,7 @@ class _CategoryCardState extends State<_CategoryCard> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
+                                AutoText(
                                   "Ver",
                                   style: AppText.small.copyWith(
                                     color: AppColors.green600,

@@ -10,6 +10,11 @@ import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
 import 'producto.dart';
 
+import '../widgets/auto_text.dart';
+import '../widgets/translated_text_field.dart';
+
+import '../pages/scanner_page.dart';
+
 class CategoryPage extends StatefulWidget {
   final Map<String, dynamic> category;
 
@@ -37,13 +42,17 @@ class _CategoryPageState extends State<CategoryPage> {
   Map<String, List<String>> _subcategoryDescendants = {};
   String? _selectedSubcategoryId;
   bool _loadingSubcategories = true;
+  bool _loadingDescendants =
+      false; // ← NUEVO: para saber si aún carga descendants
 
   // ═══════════════════════════════════════════════════════════
-  // CONTROL DEL STICKY FILTER
+  // CONTROL DEL STICKY FILTER Y SCROLL TO TOP
   // ═══════════════════════════════════════════════════════════
   final ScrollController _scrollController = ScrollController();
   bool _isFilterSticky = false;
+  bool _showScrollToTop = false;
   final double _stickyThreshold = 200;
+  final double _scrollToTopThreshold = 400;
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -73,10 +82,30 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   void _onScroll() {
-    final isSticky = _scrollController.offset > _stickyThreshold;
+    final offset = _scrollController.offset;
+
+    // Control del sticky filter
+    final isSticky = offset > _stickyThreshold;
     if (isSticky != _isFilterSticky) {
       setState(() => _isFilterSticky = isSticky);
     }
+
+    // Control del botón scroll to top
+    final showScrollTop = offset > _scrollToTopThreshold;
+    if (showScrollTop != _showScrollToTop) {
+      setState(() => _showScrollToTop = showScrollTop);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SCROLL AL INICIO
+  // ═══════════════════════════════════════════════════════════
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _initializeData() async {
@@ -101,8 +130,15 @@ class _CategoryPageState extends State<CategoryPage> {
     }
   }
 
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════
-  // CARGAR SUBCATEGORÍAS
+  // CARGAR SUBCATEGORÍAS (OPTIMIZADO)
   // ═══════════════════════════════════════════════════════════
   Future<void> _fetchSubcategories() async {
     final String parentId = widget.category['id'].toString();
@@ -150,23 +186,62 @@ class _CategoryPageState extends State<CategoryPage> {
                 'id': id,
                 'name': name?.toString() ?? 'Subcategoría',
               });
-
-              final descendants = await _getAllSubcategoryIds(id);
-              _subcategoryDescendants[id] = [id, ...descendants];
             }
           }
         }
 
+        // ✅ MOSTRAR SUBCATEGORÍAS INMEDIATAMENTE
         setState(() {
           _subcategories = subcats;
           _loadingSubcategories = false;
+          _loadingDescendants = subcats.isNotEmpty;
         });
+
+        // ✅ CARGAR DESCENDANTS EN PARALELO (en segundo plano)
+        if (subcats.isNotEmpty) {
+          _loadDescendantsInParallel(subcats);
+        }
       } else {
         setState(() => _loadingSubcategories = false);
       }
     } catch (e) {
       debugPrint('Error cargando subcategorías: $e');
       setState(() => _loadingSubcategories = false);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CARGAR DESCENDANTS EN PARALELO
+  // ═══════════════════════════════════════════════════════════
+  Future<void> _loadDescendantsInParallel(
+    List<Map<String, dynamic>> subcats,
+  ) async {
+    try {
+      // Crear lista de futures para cargar todos en paralelo
+      final futures = subcats.map((subcat) async {
+        final id = subcat['id'] as String;
+        final descendants = await _getAllSubcategoryIds(id);
+        return MapEntry(id, [id, ...descendants]);
+      }).toList();
+
+      // Ejecutar todos en paralelo
+      final results = await Future.wait(futures);
+
+      if (!mounted) return;
+
+      // Guardar resultados
+      for (final entry in results) {
+        _subcategoryDescendants[entry.key] = entry.value;
+      }
+
+      setState(() {
+        _loadingDescendants = false;
+      });
+    } catch (e) {
+      debugPrint('Error cargando descendants: $e');
+      if (mounted) {
+        setState(() => _loadingDescendants = false);
+      }
     }
   }
 
@@ -330,10 +405,17 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   void _selectSubcategory(String? subcategoryId) {
+    final wasSticky = _isFilterSticky;
+
     setState(() {
       _selectedSubcategoryId = subcategoryId;
     });
     _applyFilters();
+
+    // Si estaba en modo sticky, volver al inicio
+    if (wasSticky) {
+      _scrollToTop();
+    }
   }
 
   void _clearSearch() {
@@ -344,12 +426,19 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   void _clearAllFilters() {
+    final wasSticky = _isFilterSticky;
+
     _searchController.clear();
     setState(() {
       _searchText = '';
       _selectedSubcategoryId = null;
     });
     _applyFilters();
+
+    // Si estaba en modo sticky, volver al inicio
+    if (wasSticky) {
+      _scrollToTop();
+    }
   }
 
   String _getSelectedSubcategoryName() {
@@ -371,14 +460,15 @@ class _CategoryPageState extends State<CategoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true,
+
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             const AppHeader(),
 
-            // ═══════════════════════════════════════════
             // STICKY FILTER SIMPLE
-            // ═══════════════════════════════════════════
             if (_isFilterSticky && _subcategories.isNotEmpty)
               _buildStickyFilterBar(),
 
@@ -392,31 +482,101 @@ class _CategoryPageState extends State<CategoryPage> {
           ],
         ),
       ),
+
+      floatingActionButton: _buildScrollToTopButton(),
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: BARRA DE FILTRO STICKY SIMPLE
+  // WIDGET: BOTÓN SCROLL TO TOP
+  // ═══════════════════════════════════════════════════════════
+  Widget? _buildScrollToTopButton() {
+    if (!_showScrollToTop || _loading) return null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 200),
+        builder: (context, value, child) {
+          return Transform.scale(
+            scale: value,
+            child: FloatingActionButton(
+              onPressed: _scrollToTop,
+              backgroundColor: AppColors.green600,
+              elevation: 4,
+              mini: true,
+              child: const Icon(
+                Icons.keyboard_arrow_up_rounded,
+                color: AppColors.white,
+                size: 28,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: BARRA DE FILTRO STICKY (CON INDICADOR DE CARGA)
   // ═══════════════════════════════════════════════════════════
   Widget _buildStickyFilterBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
+          // Icono de filtro compacto
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.purple600, AppColors.purple400],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.purple500.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _loadingDescendants
+                ? const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.white,
+                    ),
+                  )
+                : const Icon(
+                    Icons.filter_list_rounded,
+                    color: AppColors.white,
+                    size: 18,
+                  ),
+          ),
+
+          const SizedBox(width: 10),
+
           // Selector de subcategoría
           Expanded(
             child: GestureDetector(
@@ -424,34 +584,28 @@ class _CategoryPageState extends State<CategoryPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 8,
+                  vertical: 10,
                 ),
                 decoration: BoxDecoration(
                   color: _selectedSubcategoryId != null
                       ? AppColors.purple50
                       : AppColors.background,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: _selectedSubcategoryId != null
                         ? AppColors.purple300
                         : Colors.grey.shade300,
+                    width: 1.5,
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.filter_list_rounded,
-                      color: _selectedSubcategoryId != null
-                          ? AppColors.purple600
-                          : Colors.grey.shade500,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: AutoText(
                         _getSelectedSubcategoryName(),
-                        style: AppText.small.copyWith(
-                          fontWeight: FontWeight.w500,
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                           color: _selectedSubcategoryId != null
                               ? AppColors.purple700
                               : AppColors.textDark,
@@ -460,9 +614,12 @@ class _CategoryPageState extends State<CategoryPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 6),
                     Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      color: Colors.grey.shade500,
+                      color: _selectedSubcategoryId != null
+                          ? AppColors.purple500
+                          : Colors.grey.shade500,
                       size: 20,
                     ),
                   ],
@@ -471,26 +628,22 @@ class _CategoryPageState extends State<CategoryPage> {
             ),
           ),
 
-          // Botón Limpiar (solo si hay filtros activos)
+          // Botón Limpiar
           if (_hasActiveFilters) ...[
             const SizedBox(width: 8),
             GestureDetector(
               onTap: _clearAllFilters,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.purple100,
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade200),
                 ),
-                child: Text(
-                  "Limpiar",
-                  style: AppText.small.copyWith(
-                    color: AppColors.purple700,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Icon(
+                  Icons.close_rounded,
+                  color: Colors.red.shade500,
+                  size: 18,
                 ),
               ),
             ),
@@ -501,7 +654,7 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // MODAL: SELECTOR DE SUBCATEGORÍAS
+  // MODAL: SELECTOR DE SUBCATEGORÍAS (TEMA PÚRPURA)
   // ═══════════════════════════════════════════════════════════
   void _showSubcategoryPicker() {
     showModalBottomSheet(
@@ -510,7 +663,7 @@ class _CategoryPageState extends State<CategoryPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
         ),
         decoration: const BoxDecoration(
           color: AppColors.white,
@@ -526,7 +679,7 @@ class _CategoryPageState extends State<CategoryPage> {
             Container(
               width: 40,
               height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              margin: const EdgeInsets.only(top: 12, bottom: 16),
               decoration: BoxDecoration(
                 color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(2),
@@ -535,57 +688,121 @@ class _CategoryPageState extends State<CategoryPage> {
 
             // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
+                  // Icono con gradiente púrpura
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: AppColors.purple100,
-                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        colors: [AppColors.purple600, AppColors.purple400],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.purple500.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: Icon(
-                      Icons.category_rounded,
-                      color: AppColors.purple700,
-                      size: 22,
-                    ),
+                    child: _loadingDescendants
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.filter_list_rounded,
+                            color: AppColors.white,
+                            size: 24,
+                          ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
+
+                  // Título y subtítulo
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Seleccionar subcategoría",
-                          style: AppText.subtitle.copyWith(fontSize: 16),
+                        AutoText(
+                          "Filtrar productos",
+                          style: AppText.title.copyWith(fontSize: 18),
                         ),
-                        Text(
-                          "${_subcategories.length + 1} opciones disponibles",
-                          style: AppText.small.copyWith(
-                            color: Colors.grey.shade500,
-                          ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.purple100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AutoText(
+                                    "${_subcategories.length + 1} opciones",
+                                    style: AppText.small.copyWith(
+                                      color: AppColors.purple700,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  if (_loadingDescendants) ...[
+                                    const SizedBox(width: 6),
+                                    SizedBox(
+                                      width: 10,
+                                      height: 10,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: AppColors.purple600,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: Colors.grey.shade600,
-                        size: 20,
+
+                  // Botón cerrar
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Colors.grey.shade600,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 16),
 
             Divider(color: Colors.grey.shade200, height: 1),
 
@@ -594,7 +811,7 @@ class _CategoryPageState extends State<CategoryPage> {
               child: ListView.builder(
                 shrinkWrap: true,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 itemCount: _subcategories.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
@@ -603,88 +820,186 @@ class _CategoryPageState extends State<CategoryPage> {
                       name: "Todas las subcategorías",
                       icon: Icons.grid_view_rounded,
                       isSelected: _selectedSubcategoryId == null,
+                      productCount: _products.length,
                     );
                   }
 
                   final subcat = _subcategories[index - 1];
+                  final subcatProducts = _products.where((p) {
+                    final allowedCategories =
+                        _subcategoryDescendants[subcat['id']] ?? [subcat['id']];
+                    return allowedCategories.contains(
+                      p['categoryId']?.toString(),
+                    );
+                  }).length;
+
                   return _buildSubcategoryOption(
                     id: subcat['id'],
                     name: subcat['name'],
                     icon: Icons.folder_outlined,
                     isSelected: _selectedSubcategoryId == subcat['id'],
+                    productCount: subcatProducts,
                   );
                 },
               ),
             ),
-
-            const SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: OPCIÓN DE SUBCATEGORÍA (TEMA PÚRPURA)
+  // ═══════════════════════════════════════════════════════════
   Widget _buildSubcategoryOption({
     required String? id,
     required String name,
     required IconData icon,
     required bool isSelected,
+    int productCount = 0,
   }) {
+    final bool isLoadingCount = _loadingDescendants && id != null;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            _selectSubcategory(id);
             Navigator.pop(context);
+            _selectSubcategory(id);
           },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.purple100 : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: isSelected
-                  ? Border.all(color: AppColors.purple300, width: 1.5)
-                  : null,
+              color: isSelected ? AppColors.purple50 : AppColors.background,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isSelected ? AppColors.purple400 : Colors.transparent,
+                width: 1.5,
+              ),
             ),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  color: isSelected
-                      ? AppColors.purple700
-                      : Colors.grey.shade500,
-                  size: 22,
+                // Icono
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.purple100 : AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.purple300
+                          : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isSelected
+                        ? AppColors.purple600
+                        : Colors.grey.shade500,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
+
+                // Nombre y contador
                 Expanded(
-                  child: Text(
-                    name,
-                    style: AppText.body.copyWith(
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: isSelected
-                          ? AppColors.purple800
-                          : AppColors.textDark,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AutoText(
+                        name,
+                        style: AppText.body.copyWith(
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          fontSize: 15,
+                          color: isSelected
+                              ? AppColors.purple800
+                              : AppColors.textDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 12,
+                            color: isSelected
+                                ? AppColors.purple600
+                                : Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 4),
+                          if (isLoadingCount)
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 10,
+                                  height: 10,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                AutoText(
+                                  "calculando...",
+                                  style: AppText.small.copyWith(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            AutoText(
+                              "$productCount productos",
+                              style: AppText.small.copyWith(
+                                color: isSelected
+                                    ? AppColors.purple600
+                                    : Colors.grey.shade500,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                if (isSelected)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: AppColors.purple600,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check_rounded,
-                      color: AppColors.white,
-                      size: 14,
+
+                // Indicador de selección
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.purple600
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.purple600
+                          : Colors.grey.shade300,
+                      width: 2,
                     ),
                   ),
+                  child: isSelected
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: AppColors.white,
+                          size: 16,
+                        )
+                      : null,
+                ),
               ],
             ),
           ),
@@ -706,7 +1021,7 @@ class _CategoryPageState extends State<CategoryPage> {
             strokeWidth: 3,
           ),
           const SizedBox(height: 20),
-          Text(
+          AutoText(
             "Cargando productos...",
             style: AppText.body.copyWith(
               color: AppColors.textDark.withOpacity(0.6),
@@ -737,9 +1052,9 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
             ),
             const SizedBox(height: 20),
-            Text("¡Ups! Algo salió mal", style: AppText.subtitle),
+            AutoText("¡Ups! Algo salió mal", style: AppText.subtitle),
             const SizedBox(height: 8),
-            Text(
+            AutoText(
               "No pudimos cargar los productos",
               textAlign: TextAlign.center,
               style: AppText.small.copyWith(
@@ -761,7 +1076,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: const Text("Reintentar"),
+              label: const AutoText("Reintentar"),
             ),
           ],
         ),
@@ -792,10 +1107,15 @@ class _CategoryPageState extends State<CategoryPage> {
                   const SizedBox(height: 16),
                   _buildSearchBar(),
 
-                  // Filtro de subcategorías (cuando NO está sticky)
                   if (_subcategories.isNotEmpty && !_isFilterSticky) ...[
                     const SizedBox(height: 12),
                     _buildSubcategoryFilter(),
+                  ],
+
+                  // Skeleton de subcategorías mientras carga
+                  if (_loadingSubcategories) ...[
+                    const SizedBox(height: 12),
+                    _buildLoadingSubcategoriesPlaceholder(),
                   ],
 
                   const SizedBox(height: 8),
@@ -837,17 +1157,94 @@ class _CategoryPageState extends State<CategoryPage> {
                   ),
                 ),
 
+          // Botón "Ver más"
           if (_visibleCount < _filteredProducts.length)
             SliverToBoxAdapter(child: _buildLoadMoreButton()),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          // Espacio para el footer flotante
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: FILTRO POR SUBCATEGORÍAS (CHIPS SIMPLES)
+  // WIDGET: PLACEHOLDER MIENTRAS CARGA SUBCATEGORÍAS
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildLoadingSubcategoriesPlaceholder() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8, right: 4),
+          child: Row(
+            children: [
+              Icon(
+                Icons.filter_list_rounded,
+                size: 16,
+                color: AppColors.textDark.withOpacity(0.5),
+              ),
+              const SizedBox(width: 6),
+              AutoText(
+                "Cargando subcategorías...",
+                style: AppText.small.copyWith(
+                  color: AppColors.textDark.withOpacity(0.5),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.purple500.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 36, child: _buildLoadingChips()),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: SKELETON CHIPS MIENTRAS CARGA
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildLoadingChips() {
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+          child: Container(
+            width: index == 0 ? 60 : 80 + (index * 10.0),
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Center(
+              child: Container(
+                width: 30 + (index * 8.0),
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // WIDGET: FILTRO POR SUBCATEGORÍAS (CON INDICADOR DE CARGA)
   // ═══════════════════════════════════════════════════════════
   Widget _buildSubcategoryFilter() {
     return Column(
@@ -865,12 +1262,28 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  "Filtrar por subcategoría",
-                  style: AppText.small.copyWith(
-                    color: AppColors.textDark.withOpacity(0.5),
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: Row(
+                  children: [
+                    AutoText(
+                      "Filtrar por subcategoría",
+                      style: AppText.small.copyWith(
+                        color: AppColors.textDark.withOpacity(0.5),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    // ✅ INDICADOR DE CARGA DE DESCENDANTS
+                    if (_loadingDescendants) ...[
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.purple500.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               // Botón Limpiar
@@ -886,7 +1299,7 @@ class _CategoryPageState extends State<CategoryPage> {
                       color: AppColors.purple100,
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(
+                    child: AutoText(
                       "Limpiar",
                       style: AppText.small.copyWith(
                         color: AppColors.purple700,
@@ -959,7 +1372,7 @@ class _CategoryPageState extends State<CategoryPage> {
                   ]
                 : null,
           ),
-          child: Text(
+          child: AutoText(
             name,
             style: AppText.small.copyWith(
               color: isSelected ? AppColors.white : AppColors.textDark,
@@ -1020,14 +1433,14 @@ class _CategoryPageState extends State<CategoryPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AutoText(
                   label,
                   style: AppText.title.copyWith(fontSize: 18),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
+                AutoText(
                   "${_products.length} productos",
                   style: AppText.small.copyWith(
                     color: AppColors.textDark.withOpacity(0.5),
@@ -1035,12 +1448,49 @@ class _CategoryPageState extends State<CategoryPage> {
                 ),
                 if (_subcategories.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    "${_subcategories.length} subcategorías",
-                    style: AppText.small.copyWith(
-                      color: AppColors.purple700,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      AutoText(
+                        "${_subcategories.length} subcategorías",
+                        style: AppText.small.copyWith(
+                          color: AppColors.purple700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (_loadingDescendants) ...[
+                        const SizedBox(width: 6),
+                        SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: AppColors.purple500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ] else if (_loadingSubcategories) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      AutoText(
+                        "Cargando...",
+                        style: AppText.small.copyWith(
+                          color: Colors.grey.shade500,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -1098,13 +1548,13 @@ class _CategoryPageState extends State<CategoryPage> {
           ),
         ],
       ),
-      child: TextField(
+      child: TranslatedTextField(
         controller: _searchController,
         focusNode: _searchFocusNode,
+        hintText: 'Buscar por nombre...',
         onChanged: _filterProducts,
         style: AppText.body.copyWith(fontSize: 15),
         decoration: InputDecoration(
-          hintText: 'Buscar por nombre...',
           hintStyle: AppText.body.copyWith(
             color: AppColors.textDark.withOpacity(0.4),
             fontSize: 15,
@@ -1147,14 +1597,14 @@ class _CategoryPageState extends State<CategoryPage> {
             height: 16,
             decoration: BoxDecoration(
               color: _hasActiveFilters
-                  ? AppColors.green500
-                  : AppColors.green500,
+                  ? AppColors.purple500
+                  : AppColors.purple500,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
+            child: AutoText(
               _hasActiveFilters
                   ? "${_filteredProducts.length} resultado${_filteredProducts.length != 1 ? 's' : ''} con filtros"
                   : "Mostrando ${min(_visibleCount, _filteredProducts.length)} de ${_filteredProducts.length}",
@@ -1179,7 +1629,7 @@ class _CategoryPageState extends State<CategoryPage> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: _hasActiveFilters
-                    ? AppColors.green50
+                    ? AppColors.purple50
                     : AppColors.green50,
                 shape: BoxShape.circle,
               ),
@@ -1189,17 +1639,17 @@ class _CategoryPageState extends State<CategoryPage> {
                     : Icons.inventory_2_outlined,
                 size: 48,
                 color: _hasActiveFilters
-                    ? AppColors.green400
+                    ? AppColors.purple400
                     : AppColors.green400,
               ),
             ),
             const SizedBox(height: 20),
-            Text(
+            AutoText(
               _hasActiveFilters ? "Sin resultados" : "No hay productos",
               style: AppText.subtitle,
             ),
             const SizedBox(height: 8),
-            Text(
+            AutoText(
               _hasActiveFilters
                   ? "No encontramos productos con los filtros actuales"
                   : "Esta categoría no tiene productos disponibles",
@@ -1224,7 +1674,7 @@ class _CategoryPageState extends State<CategoryPage> {
                   ),
                 ),
                 icon: const Icon(Icons.clear_all_rounded, size: 18),
-                label: const Text("Limpiar filtros"),
+                label: const AutoText("Limpiar filtros"),
               ),
             ],
           ],
@@ -1266,7 +1716,7 @@ class _CategoryPageState extends State<CategoryPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
+                  AutoText(
                     "Ver más productos",
                     style: AppText.body.copyWith(
                       color: AppColors.green600,
@@ -1283,7 +1733,7 @@ class _CategoryPageState extends State<CategoryPage> {
                       color: AppColors.green100,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
+                    child: AutoText(
                       "+$remaining",
                       style: AppText.small.copyWith(
                         color: AppColors.green600,
@@ -1362,7 +1812,7 @@ class _ProductCardState extends State<_ProductCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 3,
+                flex: 5,
                 child: ClipRRect(
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(16),
@@ -1407,7 +1857,7 @@ class _ProductCardState extends State<_ProductCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(
+                        child: AutoText(
                           widget.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1421,11 +1871,11 @@ class _ProductCardState extends State<_ProductCard> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
+                            AutoText(
                               "${priceWithTax.toStringAsFixed(2)} €",
                               style: AppText.body.copyWith(
                                 fontSize: 14,
-                                color: AppColors.green600,
+                                color: AppColors.green700,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1438,7 +1888,7 @@ class _ProductCardState extends State<_ProductCard> {
                               child: const Icon(
                                 Icons.arrow_forward_rounded,
                                 size: 14,
-                                color: AppColors.green600,
+                                color: AppColors.green700,
                               ),
                             ),
                           ],

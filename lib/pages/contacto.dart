@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auto_text.dart';
+import '../pages/scanner_page.dart';
 
 class Contacto extends StatefulWidget {
   const Contacto({super.key});
@@ -62,6 +64,13 @@ class _ContactoState extends State<Contacto> {
         Navigator.pushReplacementNamed(context, '/carrito');
         break;
     }
+  }
+
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -225,6 +234,7 @@ class _ContactoState extends State<Contacto> {
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
@@ -254,7 +264,7 @@ class _ContactoState extends State<Contacto> {
               size: 20,
             ),
             const SizedBox(width: 6),
-            Text(
+            AutoText(
               "Volver",
               style: AppText.small.copyWith(
                 color: AppColors.purple600,
@@ -300,13 +310,13 @@ class _ContactoState extends State<Contacto> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
+          AutoText(
             "¿En qué podemos ayudarte?",
             style: AppText.title.copyWith(color: AppColors.white, fontSize: 24),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Text(
+          AutoText(
             "Estamos aquí para resolver todas tus dudas",
             style: AppText.body.copyWith(
               color: AppColors.white.withOpacity(0.9),
@@ -386,7 +396,7 @@ class _ContactoState extends State<Contacto> {
               child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(height: 10),
-            Text(
+            AutoText(
               label,
               style: AppText.small.copyWith(
                 fontWeight: FontWeight.w600,
@@ -438,11 +448,11 @@ class _ContactoState extends State<Contacto> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    AutoText(
                       "FARMACIA GUERRERO",
                       style: AppText.subtitle.copyWith(fontSize: 16),
                     ),
-                    Text(
+                    AutoText(
                       "Tu farmacia de confianza",
                       style: AppText.small.copyWith(color: AppColors.green600),
                     ),
@@ -501,7 +511,7 @@ class _ContactoState extends State<Contacto> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  AutoText(
                     label,
                     style: AppText.small.copyWith(
                       color: Colors.grey.shade500,
@@ -509,7 +519,7 @@ class _ContactoState extends State<Contacto> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  AutoText(
                     value,
                     style: AppText.body.copyWith(
                       fontWeight: FontWeight.w500,
@@ -566,7 +576,7 @@ class _ContactoState extends State<Contacto> {
                 ),
               ),
               const SizedBox(width: 14),
-              Text(
+              AutoText(
                 "Horario de atención",
                 style: AppText.subtitle.copyWith(fontSize: 16),
               ),
@@ -598,7 +608,7 @@ class _ContactoState extends State<Contacto> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
+                  child: AutoText(
                     "Para urgencias fuera de horario, consulte las farmacias de guardia.",
                     style: AppText.small.copyWith(
                       color: AppColors.green700,
@@ -631,14 +641,14 @@ class _ContactoState extends State<Contacto> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(dia, style: AppText.body.copyWith(fontSize: 14)),
+          AutoText(dia, style: AppText.body.copyWith(fontSize: 14)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: isOpen ? AppColors.green100 : Colors.red.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
+            child: AutoText(
               horario,
               style: AppText.small.copyWith(
                 color: isOpen ? AppColors.green700 : Colors.red.shade600,
@@ -692,11 +702,11 @@ class _ContactoState extends State<Contacto> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AutoText(
                         "Envíanos un mensaje",
                         style: AppText.subtitle.copyWith(fontSize: 16),
                       ),
-                      Text(
+                      AutoText(
                         "Te responderemos lo antes posible",
                         style: AppText.small.copyWith(
                           color: Colors.grey.shade500,
@@ -817,7 +827,7 @@ class _ContactoState extends State<Contacto> {
                         children: [
                           const Icon(Icons.send_rounded, size: 20),
                           const SizedBox(width: 10),
-                          Text(
+                          AutoText(
                             "Enviar mensaje",
                             style: AppText.button.copyWith(fontSize: 15),
                           ),
@@ -918,7 +928,7 @@ class _ContactoState extends State<Contacto> {
       items: _motivos.map((motivo) {
         return DropdownMenuItem(
           value: motivo,
-          child: Text(motivo, style: AppText.body.copyWith(fontSize: 15)),
+          child: AutoText(motivo, style: AppText.body.copyWith(fontSize: 15)),
         );
       }).toList(),
       onChanged: (value) {
@@ -1017,7 +1027,7 @@ class _ContactoState extends State<Contacto> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
+                              AutoText(
                                 "Ver en Google Maps",
                                 style: AppText.small.copyWith(
                                   color: AppColors.green700,
@@ -1049,12 +1059,12 @@ class _ContactoState extends State<Contacto> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AutoText(
                         "Nuestra ubicación",
                         style: AppText.subtitle.copyWith(fontSize: 15),
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      AutoText(
                         "Fernández Ballesteros 7, 11009 Cádiz",
                         style: AppText.small.copyWith(
                           color: Colors.grey.shade600,
@@ -1078,7 +1088,7 @@ class _ContactoState extends State<Contacto> {
                     elevation: 0,
                   ),
                   icon: const Icon(Icons.directions_rounded, size: 18),
-                  label: Text(
+                  label: AutoText(
                     "Cómo llegar",
                     style: AppText.small.copyWith(
                       color: AppColors.white,

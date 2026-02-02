@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:translator/translator.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auto_text.dart';
+import '../providers/language_provider.dart';
+import '../widgets/auto_formatted_text.dart';
+import '../pages/scanner_page.dart';
 
 class PoliticaEnvios extends StatefulWidget {
   const PoliticaEnvios({super.key});
@@ -31,6 +37,13 @@ class _PoliticaEnviosState extends State<PoliticaEnvios> {
     }
   }
 
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +70,6 @@ class _PoliticaEnviosState extends State<PoliticaEnvios> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Tarjetas de resumen
                       _buildSummaryCards(),
                       const SizedBox(height: 20),
 
@@ -198,6 +210,7 @@ Fernández Ballesteros 7
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
@@ -265,13 +278,13 @@ Fernández Ballesteros 7
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 10),
-          Text(
+          AutoText(
             title,
             style: AppText.subtitle.copyWith(fontSize: 14),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
-          Text(
+          AutoText(
             subtitle,
             style: AppText.small.copyWith(
               color: AppColors.textDark.withOpacity(0.5),
@@ -309,7 +322,7 @@ Fernández Ballesteros 7
               size: 20,
             ),
             const SizedBox(width: 6),
-            Text(
+            AutoText(
               "Volver",
               style: AppText.small.copyWith(
                 color: AppColors.purple600,
@@ -359,7 +372,7 @@ Fernández Ballesteros 7
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AutoText(
                   title,
                   style: AppText.title.copyWith(
                     color: AppColors.white,
@@ -367,7 +380,7 @@ Fernández Ballesteros 7
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                AutoText(
                   subtitle,
                   style: AppText.small.copyWith(
                     color: AppColors.white.withOpacity(0.9),
@@ -399,47 +412,17 @@ Fernández Ballesteros 7
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          AutoText(
             title,
             style: AppText.subtitle.copyWith(
               fontSize: 16,
-              color: Colors.green.shade700,
+              color: AppColors.green700,
             ),
           ),
           const SizedBox(height: 12),
-          _buildFormattedText(content),
+          // ← CAMBIO: Usar AutoFormattedText
+          AutoFormattedText(content: content),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFormattedText(String text) {
-    final List<InlineSpan> spans = [];
-    final RegExp boldPattern = RegExp(r'\*\*(.*?)\*\*');
-    int lastEnd = 0;
-
-    for (final match in boldPattern.allMatches(text)) {
-      if (match.start > lastEnd)
-        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      );
-      lastEnd = match.end;
-    }
-    if (lastEnd < text.length)
-      spans.add(TextSpan(text: text.substring(lastEnd)));
-
-    return RichText(
-      text: TextSpan(
-        style: AppText.body.copyWith(
-          color: AppColors.textDark.withOpacity(0.75),
-          height: 1.6,
-          fontSize: 14,
-        ),
-        children: spans,
       ),
     );
   }
@@ -449,18 +432,18 @@ Fernández Ballesteros 7
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: AppColors.green50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.green.shade200),
+        border: Border.all(color: AppColors.green200),
       ),
       child: Row(
         children: [
-          Icon(Icons.update_rounded, color: Colors.green.shade600, size: 18),
+          Icon(Icons.update_rounded, color: AppColors.green600, size: 18),
           const SizedBox(width: 10),
-          Text(
+          AutoText(
             text,
             style: AppText.small.copyWith(
-              color: Colors.green.shade700,
+              color: AppColors.green700,
               fontWeight: FontWeight.w500,
             ),
           ),

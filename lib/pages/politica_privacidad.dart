@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:translator/translator.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auto_text.dart';
+import '../providers/language_provider.dart';
+import '../widgets/auto_formatted_text.dart';
+import '../pages/scanner_page.dart';
 
 class PoliticaPrivacidad extends StatefulWidget {
   const PoliticaPrivacidad({super.key});
@@ -29,6 +35,13 @@ class _PoliticaPrivacidadState extends State<PoliticaPrivacidad> {
         Navigator.pushReplacementNamed(context, '/carrito');
         break;
     }
+  }
+
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
   }
 
   @override
@@ -178,6 +191,7 @@ Para cualquier cuestión relacionada con el tratamiento de sus datos personales,
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
@@ -207,7 +221,7 @@ Para cualquier cuestión relacionada con el tratamiento de sus datos personales,
               size: 20,
             ),
             const SizedBox(width: 6),
-            Text(
+            AutoText(
               "Volver",
               style: AppText.small.copyWith(
                 color: AppColors.purple600,
@@ -257,7 +271,7 @@ Para cualquier cuestión relacionada con el tratamiento de sus datos personales,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AutoText(
                   title,
                   style: AppText.title.copyWith(
                     color: AppColors.white,
@@ -265,7 +279,7 @@ Para cualquier cuestión relacionada con el tratamiento de sus datos personales,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                AutoText(
                   subtitle,
                   style: AppText.small.copyWith(
                     color: AppColors.white.withOpacity(0.9),
@@ -297,7 +311,7 @@ Para cualquier cuestión relacionada con el tratamiento de sus datos personales,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          AutoText(
             title,
             style: AppText.subtitle.copyWith(
               fontSize: 16,
@@ -305,39 +319,9 @@ Para cualquier cuestión relacionada con el tratamiento de sus datos personales,
             ),
           ),
           const SizedBox(height: 12),
-          _buildFormattedText(content),
+          // ← CAMBIO: Usar AutoFormattedText
+          AutoFormattedText(content: content),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFormattedText(String text) {
-    final List<InlineSpan> spans = [];
-    final RegExp boldPattern = RegExp(r'\*\*(.*?)\*\*');
-    int lastEnd = 0;
-
-    for (final match in boldPattern.allMatches(text)) {
-      if (match.start > lastEnd)
-        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      );
-      lastEnd = match.end;
-    }
-    if (lastEnd < text.length)
-      spans.add(TextSpan(text: text.substring(lastEnd)));
-
-    return RichText(
-      text: TextSpan(
-        style: AppText.body.copyWith(
-          color: AppColors.textDark.withOpacity(0.75),
-          height: 1.6,
-          fontSize: 14,
-        ),
-        children: spans,
       ),
     );
   }
@@ -355,7 +339,7 @@ Para cualquier cuestión relacionada con el tratamiento de sus datos personales,
         children: [
           Icon(Icons.update_rounded, color: AppColors.green600, size: 18),
           const SizedBox(width: 10),
-          Text(
+          AutoText(
             text,
             style: AppText.small.copyWith(
               color: AppColors.green700,

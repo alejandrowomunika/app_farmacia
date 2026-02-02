@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-
+import '../widgets/auto_text.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
+import '../pages/scanner_page.dart';
 
 class Chat extends StatefulWidget {
   const Chat({super.key});
@@ -54,6 +55,9 @@ class _ChatState extends State<Chat> {
           },
         ),
       )
+      // ═══════════════════════════════════════════
+      // RECOGEMOS LA URL PARA MOSTRAR EL CHATBOT
+      // ═══════════════════════════════════════════
       ..loadRequest(
         Uri.parse('https://chatbot.womunika-ia.com/chatbot/XdqWeUUUu5KG2PnR'),
       );
@@ -74,6 +78,13 @@ class _ChatState extends State<Chat> {
     if (index == 1) Navigator.pushReplacementNamed(context, '/tienda');
     if (index == 2) Navigator.pushReplacementNamed(context, '/chat');
     if (index == 3) Navigator.pushReplacementNamed(context, '/carrito');
+  }
+
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
   }
 
   @override
@@ -102,6 +113,7 @@ class _ChatState extends State<Chat> {
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
@@ -157,7 +169,7 @@ class _ChatState extends State<Chat> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AutoText(
                   "Asistente Farmacéutico",
                   style: AppText.subtitle.copyWith(fontSize: 16),
                 ),
@@ -173,7 +185,7 @@ class _ChatState extends State<Chat> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
+                    AutoText(
                       "En línea",
                       style: AppText.small.copyWith(
                         color: AppColors.green600,
@@ -237,14 +249,14 @@ class _ChatState extends State<Chat> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text(
+                  AutoText(
                     "Conectando con el asistente...",
                     style: AppText.body.copyWith(
                       color: AppColors.textDark.withOpacity(0.6),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  AutoText(
                     "Esto puede tardar unos segundos",
                     style: AppText.small.copyWith(
                       color: AppColors.textDark.withOpacity(0.4),
@@ -282,12 +294,12 @@ class _ChatState extends State<Chat> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(
+            AutoText(
               "No se pudo conectar",
               style: AppText.subtitle.copyWith(fontSize: 18),
             ),
             const SizedBox(height: 8),
-            Text(
+            AutoText(
               "Verifica tu conexión a internet e inténtalo de nuevo",
               textAlign: TextAlign.center,
               style: AppText.body.copyWith(
@@ -309,7 +321,7 @@ class _ChatState extends State<Chat> {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: Text(
+              label: AutoText(
                 "Reintentar",
                 style: AppText.button.copyWith(fontSize: 15),
               ),
@@ -336,14 +348,14 @@ class _ChatState extends State<Chat> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        AutoText(
                           "¿Necesitas ayuda?",
                           style: AppText.small.copyWith(
                             fontWeight: FontWeight.w600,
                             color: AppColors.green700,
                           ),
                         ),
-                        Text(
+                        AutoText(
                           "Llámanos al teléfono de la farmacia",
                           style: AppText.small.copyWith(
                             color: AppColors.textDark.withOpacity(0.6),

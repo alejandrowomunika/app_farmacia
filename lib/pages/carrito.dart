@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
-// Asegúrate de que estas rutas sean correctas en tu proyecto
+import '../widgets/auto_text.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
 import '../data/cart.dart';
+import '../pages/scanner_page.dart';
 
 class CarritoPage extends StatefulWidget {
   const CarritoPage({super.key});
@@ -21,20 +21,21 @@ class _CarritoPageState extends State<CarritoPage> {
   int selectedIndex = 3;
   bool _isProcessing = false;
   bool _isLoading = true;
+  bool _isCheckoutCollapsed = false;
 
-  // Mapa para guardar el stock disponible de cada producto
   Map<int, int> _stockDisponible = {};
-  
-  // Set para controlar qué items están procesando una acción
   Set<int> _processingItems = {};
 
-  // API Keys
+  final ScrollController _scrollController = ScrollController();
+  bool _showScrollToTop = false;
+
   final String apiKey = "CGVBYEAKW3KG46ZY4JQWT8Q8433F6YBS";
   final String appSecretKey = "FarmaciaGuerrero_App_25_SecretKey_X7k9m2";
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
 
     Cart.onSessionExpired = (items) async {
       for (final item in items) {
@@ -45,22 +46,37 @@ class _CarritoPageState extends State<CarritoPage> {
     _loadCart();
   }
 
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final showScrollTop = _scrollController.offset > 300;
+    if (showScrollTop != _showScrollToTop) {
+      setState(() => _showScrollToTop = showScrollTop);
+    }
+  }
+
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   Future<void> _loadCart() async {
     setState(() => _isLoading = true);
-    
     await Cart.loadCart();
-    
-    // Cargar stock de todos los productos del carrito
     await _loadAllStock();
-    
     if (mounted) {
       setState(() => _isLoading = false);
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // CARGAR STOCK DE TODOS LOS PRODUCTOS
-  // ─────────────────────────────────────────────────────────
   Future<void> _loadAllStock() async {
     for (final item in Cart.items) {
       final stock = await _getAvailableStock(item.id);
@@ -72,9 +88,6 @@ class _CarritoPageState extends State<CarritoPage> {
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // OBTENER STOCK DISPONIBLE DE UN PRODUCTO
-  // ─────────────────────────────────────────────────────────
   Future<int> _getAvailableStock(int productId) async {
     final url = Uri.parse(
       "https://www.farmaciaguerrerozieza.com/api/stock_availables"
@@ -83,12 +96,14 @@ class _CarritoPageState extends State<CarritoPage> {
 
     try {
       final res = await http.get(url);
-
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data["stock_availables"] != null &&
             data["stock_availables"].isNotEmpty) {
-          return int.tryParse(data["stock_availables"][0]["quantity"].toString()) ?? 0;
+          return int.tryParse(
+                data["stock_availables"][0]["quantity"].toString(),
+              ) ??
+              0;
         }
       }
     } catch (e) {
@@ -97,12 +112,8 @@ class _CarritoPageState extends State<CarritoPage> {
     return 0;
   }
 
-  // ─────────────────────────────────────────────────────────
-  // NAVEGACIÓN FOOTER
-  // ─────────────────────────────────────────────────────────
   void onFooterTap(int index) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    
     if (index == selectedIndex) return;
 
     if (index == 0) {
@@ -114,8 +125,15 @@ class _CarritoPageState extends State<CarritoPage> {
     }
   }
 
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════
-  // STOCK MANAGEMENT (Lógica original del Carrito 1)
+  // STOCK MANAGEMENT
   // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>?> _loadStockOfItem(int productId) async {
     final url = Uri.parse(
@@ -125,7 +143,6 @@ class _CarritoPageState extends State<CarritoPage> {
 
     try {
       final res = await http.get(url);
-
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data["stock_availables"] != null &&
@@ -146,7 +163,8 @@ class _CarritoPageState extends State<CarritoPage> {
     final currentStock = int.tryParse(stock["quantity"].toString()) ?? 0;
     final newQuantity = currentStock + amount;
 
-    final xmlBody = '''
+    final xmlBody =
+        '''
 <?xml version="1.0" encoding="UTF-8"?>
 <prestashop xmlns:xlink="http://www.w3.org/1999/xlink">
   <stock_available>
@@ -173,7 +191,7 @@ class _CarritoPageState extends State<CarritoPage> {
         headers: {"Content-Type": "application/xml"},
         body: xmlBody,
       );
-      
+
       if (res.statusCode == 200 || res.statusCode == 201) {
         _stockDisponible[item.id] = newQuantity;
         return true;
@@ -189,14 +207,12 @@ class _CarritoPageState extends State<CarritoPage> {
     if (stock == null) return false;
 
     final currentStock = int.tryParse(stock["quantity"].toString()) ?? 0;
-    
-    if (currentStock < amount) {
-      return false;
-    }
-    
+    if (currentStock < amount) return false;
+
     final newQuantity = currentStock - amount;
 
-    final xmlBody = '''
+    final xmlBody =
+        '''
 <?xml version="1.0" encoding="UTF-8"?>
 <prestashop xmlns:xlink="http://www.w3.org/1999/xlink">
   <stock_available>
@@ -223,7 +239,7 @@ class _CarritoPageState extends State<CarritoPage> {
         headers: {"Content-Type": "application/xml"},
         body: xmlBody,
       );
-      
+
       if (res.statusCode == 200 || res.statusCode == 201) {
         _stockDisponible[item.id] = newQuantity;
         return true;
@@ -237,22 +253,21 @@ class _CarritoPageState extends State<CarritoPage> {
   // ═══════════════════════════════════════════════════════════
   // ACCIONES DEL CARRITO
   // ═══════════════════════════════════════════════════════════
-  
   Future<void> _incrementItem(CartItem item) async {
     if (_processingItems.contains(item.id)) return;
-    
+
     setState(() => _processingItems.add(item.id));
-    
+
     try {
       final stockActual = await _getAvailableStock(item.id);
-      
+
       if (stockActual <= 0) {
-        _showWarningSnackBar("No hay más stock disponible de este producto");
+        _showWarningSnackBar("No hay más stock disponible");
         return;
       }
-      
+
       final success = await _restarStockOfItem(item, 1);
-      
+
       if (success) {
         setState(() {
           item.quantity++;
@@ -263,7 +278,6 @@ class _CarritoPageState extends State<CarritoPage> {
         _showWarningSnackBar("No se pudo añadir más unidades");
       }
     } catch (e) {
-      debugPrint("Error incrementando: $e");
       _showErrorSnackBar("Error al actualizar cantidad");
     } finally {
       if (mounted) {
@@ -271,20 +285,20 @@ class _CarritoPageState extends State<CarritoPage> {
       }
     }
   }
-  
+
   Future<void> _decrementItem(CartItem item) async {
     if (_processingItems.contains(item.id)) return;
-    
+
     if (item.quantity <= 1) {
       _showRemoveDialog(item);
       return;
     }
-    
+
     setState(() => _processingItems.add(item.id));
-    
+
     try {
       final success = await _sumarStockOfItem(item, 1);
-      
+
       if (success) {
         setState(() {
           item.quantity--;
@@ -295,7 +309,6 @@ class _CarritoPageState extends State<CarritoPage> {
         _showErrorSnackBar("Error al actualizar cantidad");
       }
     } catch (e) {
-      debugPrint("Error decrementando: $e");
       _showErrorSnackBar("Error al actualizar cantidad");
     } finally {
       if (mounted) {
@@ -303,53 +316,49 @@ class _CarritoPageState extends State<CarritoPage> {
       }
     }
   }
-  
+
   Future<void> _removeItem(CartItem item) async {
     setState(() => _processingItems.add(item.id));
-    
+
     try {
       await _sumarStockOfItem(item, item.quantity);
       Cart.removeItem(item.id);
       await Cart.saveCart();
-      
+
       if (mounted) {
         setState(() {
           _stockDisponible.remove(item.id);
           _processingItems.remove(item.id);
         });
-        
-        _showSuccessSnackBar("Producto eliminado del carrito");
+        _showSuccessSnackBar("Producto eliminado");
       }
     } catch (e) {
-      debugPrint("Error eliminando: $e");
       _showErrorSnackBar("Error al eliminar producto");
       if (mounted) {
         setState(() => _processingItems.remove(item.id));
       }
     }
   }
-  
+
   Future<void> _clearCart() async {
     setState(() => _isProcessing = true);
-    
+
     try {
       for (final item in Cart.items) {
         await _sumarStockOfItem(item, item.quantity);
       }
-      
+
       Cart.clear();
       await Cart.saveCart();
-      
+
       if (mounted) {
         setState(() {
           _stockDisponible.clear();
           _isProcessing = false;
         });
-        
         _showSuccessSnackBar("Carrito vaciado");
       }
     } catch (e) {
-      debugPrint("Error vaciando carrito: $e");
       _showErrorSnackBar("Error al vaciar el carrito");
       if (mounted) {
         setState(() => _isProcessing = false);
@@ -358,7 +367,7 @@ class _CarritoPageState extends State<CarritoPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SINCRONIZAR CARRITO CON PRESTASHOP
+  // SINCRONIZAR Y FINALIZAR PEDIDO
   // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>?> _syncCartWithPrestashop() async {
     final url = Uri.parse(
@@ -366,11 +375,13 @@ class _CarritoPageState extends State<CarritoPage> {
     );
 
     final products = Cart.items
-        .map((item) => {
-              'id_product': item.id,
-              'id_product_attribute': 0,
-              'quantity': item.quantity,
-            })
+        .map(
+          (item) => {
+            'id_product': item.id,
+            'id_product_attribute': 0,
+            'quantity': item.quantity,
+          },
+        )
         .toList();
 
     try {
@@ -383,12 +394,8 @@ class _CarritoPageState extends State<CarritoPage> {
         body: jsonEncode({'products': products}),
       );
 
-      debugPrint("Response status: ${response.statusCode}");
-      debugPrint("Response body: ${response.body}");
-
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data;
+        return jsonDecode(response.body);
       }
     } catch (e) {
       debugPrint("Error sincronizando carrito: $e");
@@ -396,9 +403,6 @@ class _CarritoPageState extends State<CarritoPage> {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // FINALIZAR PEDIDO (MODIFICADO CON REDIRECCIÓN DEL CARRITO 2)
-  // ═══════════════════════════════════════════════════════════
   Future<void> _finalizarPedido() async {
     setState(() => _isProcessing = true);
 
@@ -409,22 +413,14 @@ class _CarritoPageState extends State<CarritoPage> {
         final idCart = result['id_cart'];
         final secureKey = result['secure_key'];
 
-        // --- AQUÍ ESTÁ EL CAMBIO CLAVE ---
-        // Usamos la URL del segundo código
         final url =
             "https://www.farmaciaguerrerozieza.com/app-carrito?id_cart=$idCart&key=$secureKey";
 
-        debugPrint("Abriendo URL: $url");
-
-        launchUrl(
-          Uri.parse(url),
-          mode: LaunchMode.externalApplication,
-        );
+        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       } else {
         _showErrorSnackBar(result?['error'] ?? 'No se pudo crear el carrito');
       }
     } catch (e) {
-      debugPrint("Error: $e");
       _showErrorSnackBar("Error al procesar el pedido");
     } finally {
       if (mounted) {
@@ -442,22 +438,37 @@ class _CarritoPageState extends State<CarritoPage> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline, color: AppColors.white),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                color: AppColors.white,
+                size: 20,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
+              child: AutoText(
                 message,
                 style: AppText.body.copyWith(color: AppColors.white),
               ),
             ),
           ],
         ),
-        backgroundColor: Colors.red.shade600,
+        backgroundColor: Colors.red.shade500,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          100,
+        ), // ← MODIFICADO: espacio para el footer
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -468,52 +479,35 @@ class _CarritoPageState extends State<CarritoPage> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.white,
-              size: 22,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              message,
-              style: AppText.body.copyWith(
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.check_rounded,
                 color: AppColors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
+                size: 20,
               ),
             ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              },
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close_rounded,
+            const SizedBox(width: 12),
+            Expanded(
+              child: AutoText(
+                message,
+                style: AppText.body.copyWith(
                   color: AppColors.white,
-                  size: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
         ),
-        backgroundColor: AppColors.green600.withOpacity(0.85),
+        backgroundColor: AppColors.green600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(30),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        margin: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 20,
-        ),
-        elevation: 8,
-        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 100), // ← MODIFICADO
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -524,10 +518,21 @@ class _CarritoPageState extends State<CarritoPage> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.white),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: AppColors.white,
+                size: 20,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
+              child: AutoText(
                 message,
                 style: AppText.body.copyWith(color: AppColors.white),
               ),
@@ -536,10 +541,8 @@ class _CarritoPageState extends State<CarritoPage> {
         ),
         backgroundColor: Colors.orange.shade600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 100), // ← MODIFICADO
       ),
     );
   }
@@ -547,31 +550,23 @@ class _CarritoPageState extends State<CarritoPage> {
   // ═══════════════════════════════════════════════════════════
   // CALCULAR TOTALES
   // ═══════════════════════════════════════════════════════════
-  double get _subtotal {
-    return Cart.items.fold(
-      0,
-      (sum, item) => sum + (item.priceTaxExcl * item.quantity),
-    );
-  }
+  double get _subtotal => Cart.items.fold(
+    0,
+    (sum, item) => sum + (item.priceTaxExcl * item.quantity),
+  );
 
-  double get _totalIva {
-    return Cart.items.fold(
-      0,
-      (sum, item) =>
-          sum + ((item.priceTaxIncl - item.priceTaxExcl) * item.quantity),
-    );
-  }
+  double get _totalIva => Cart.items.fold(
+    0,
+    (sum, item) =>
+        sum + ((item.priceTaxIncl - item.priceTaxExcl) * item.quantity),
+  );
 
-  double get _total {
-    return Cart.items.fold(
-      0,
-      (sum, item) => sum + (item.priceTaxIncl * item.quantity),
-    );
-  }
+  double get _total => Cart.items.fold(
+    0,
+    (sum, item) => sum + (item.priceTaxIncl * item.quantity),
+  );
 
-  int get _totalItems {
-    return Cart.items.fold(0, (sum, item) => sum + item.quantity);
-  }
+  int get _totalItems => Cart.items.fold(0, (sum, item) => sum + item.quantity);
 
   // ═══════════════════════════════════════════════════════════
   // BUILD PRINCIPAL
@@ -580,7 +575,10 @@ class _CarritoPageState extends State<CarritoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true, // ← AÑADIDO
+
       body: SafeArea(
+        bottom: false, // ← AÑADIDO
         child: Column(
           children: [
             const AppHeader(),
@@ -588,15 +586,50 @@ class _CarritoPageState extends State<CarritoPage> {
               child: _isLoading
                   ? _buildLoadingState()
                   : Cart.items.isEmpty
-                      ? _buildEmptyState()
-                      : _buildContent(),
+                  ? _buildEmptyState()
+                  : _buildContent(),
             ),
           ],
         ),
       ),
+      floatingActionButton: _buildScrollToTopButton(),
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // BOTÓN SCROLL TO TOP
+  // ═══════════════════════════════════════════════════════════
+  Widget? _buildScrollToTopButton() {
+    if (!_showScrollToTop || _isLoading || Cart.items.isEmpty) return null;
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        bottom: 80,
+      ), // ← AÑADIDO: espacio sobre el footer
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 200),
+        builder: (context, value, child) {
+          return Transform.scale(
+            scale: value,
+            child: FloatingActionButton(
+              onPressed: _scrollToTop,
+              backgroundColor: AppColors.purple600,
+              elevation: 4,
+              mini: true,
+              child: const Icon(
+                Icons.keyboard_arrow_up_rounded,
+                color: AppColors.white,
+                size: 28,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -606,28 +639,33 @@ class _CarritoPageState extends State<CarritoPage> {
   // ═══════════════════════════════════════════════════════════
   Widget _buildLoadingState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.green50,
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          bottom: 100,
+        ), // ← AÑADIDO: espacio para el footer
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.purple50,
+                shape: BoxShape.circle,
+              ),
+              child: const CircularProgressIndicator(
+                color: AppColors.purple500,
+                strokeWidth: 3,
+              ),
             ),
-            child: const CircularProgressIndicator(
-              color: AppColors.green500,
-              strokeWidth: 3,
+            const SizedBox(height: 24),
+            AutoText(
+              "Cargando tu carrito...",
+              style: AppText.body.copyWith(
+                color: AppColors.textDark.withOpacity(0.6),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            "Cargando carrito...",
-            style: AppText.body.copyWith(
-              color: AppColors.textDark.withOpacity(0.6),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -638,57 +676,78 @@ class _CarritoPageState extends State<CarritoPage> {
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.fromLTRB(
+          32,
+          32,
+          32,
+          120,
+        ), // ← MODIFICADO: espacio inferior
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(28),
+              padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.purple50,
+                gradient: LinearGradient(
+                  colors: [AppColors.purple100, AppColors.purple50],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.shopping_cart_outlined,
-                size: 64,
+                size: 56,
                 color: AppColors.purple400,
               ),
             ),
             const SizedBox(height: 28),
-            Text(
+            AutoText(
               "Tu carrito está vacío",
               style: AppText.title.copyWith(fontSize: 22),
             ),
             const SizedBox(height: 12),
-            Text(
-              "Añade productos desde nuestra tienda para empezar tu pedido",
+            AutoText(
+              "Explora nuestra tienda y añade\nproductos a tu carrito",
               textAlign: TextAlign.center,
               style: AppText.body.copyWith(
                 color: AppColors.textDark.withOpacity(0.6),
-                height: 1.4,
+                height: 1.5,
               ),
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pushReplacementNamed(context, '/tienda');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.green500,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.green500.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              icon: const Icon(Icons.store_outlined, size: 22),
-              label: Text(
-                "Ir a la tienda",
-                style: AppText.button.copyWith(fontSize: 16),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, '/tienda');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.green500,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.store_outlined, size: 22),
+                label: AutoText(
+                  "Explorar tienda",
+                  style: AppText.button.copyWith(fontSize: 16),
+                ),
               ),
             ),
           ],
@@ -703,12 +762,12 @@ class _CarritoPageState extends State<CarritoPage> {
   Widget _buildContent() {
     return Column(
       children: [
-        // Lista de productos
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadCart,
-            color: AppColors.green500,
+            color: AppColors.purple500,
             child: CustomScrollView(
+              controller: _scrollController,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -723,41 +782,38 @@ class _CarritoPageState extends State<CarritoPage> {
 
                 // Lista de items
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final item = Cart.items[index];
-                        final stockDisponible = _stockDisponible[item.id] ?? 0;
-                        final isProcessing = _processingItems.contains(item.id);
-                        
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _CartItemCard(
-                            item: item,
-                            stockDisponible: stockDisponible,
-                            isProcessing: isProcessing,
-                            onIncrement: () => _incrementItem(item),
-                            onDecrement: () => _decrementItem(item),
-                            onRemove: () => _showRemoveDialog(item),
-                          ),
-                        );
-                      },
-                      childCount: Cart.items.length,
-                    ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final item = Cart.items[index];
+                      final stockDisponible = _stockDisponible[item.id] ?? 0;
+                      final isProcessing = _processingItems.contains(item.id);
+
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index < Cart.items.length - 1 ? 12 : 0,
+                        ),
+                        child: _CartItemCard(
+                          item: item,
+                          stockDisponible: stockDisponible,
+                          isProcessing: isProcessing,
+                          onIncrement: () => _incrementItem(item),
+                          onDecrement: () => _decrementItem(item),
+                          onRemove: () => _showRemoveDialog(item),
+                        ),
+                      );
+                    }, childCount: Cart.items.length),
                   ),
                 ),
 
-                // Espacio para el resumen
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 16),
-                ),
+                // Espacio para el checkout
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
               ],
             ),
           ),
         ),
 
-        // Resumen y botón de checkout
+        // Checkout section
         _buildCheckoutSection(),
       ],
     );
@@ -774,7 +830,7 @@ class _CarritoPageState extends State<CarritoPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -783,57 +839,68 @@ class _CarritoPageState extends State<CarritoPage> {
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.purple500, AppColors.purple400],
+                colors: [AppColors.green100, AppColors.green50],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.purple500.withOpacity(0.3),
+                  color: AppColors.green500.withOpacity(0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: const Icon(
-              Icons.shopping_cart_outlined,
-              color: AppColors.white,
+              Icons.shopping_cart_rounded,
+              color: AppColors.textDark,
               size: 26,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AutoText(
                   "Mi Carrito",
                   style: AppText.title.copyWith(fontSize: 20),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.green100,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        "$_totalItems ${_totalItems == 1 ? 'producto' : 'productos'}",
-                        style: AppText.small.copyWith(
-                          color: AppColors.green700,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 14,
+                            color: AppColors.green700,
+                          ),
+                          const SizedBox(width: 6),
+                          AutoText(
+                            "$_totalItems ${_totalItems == 1 ? 'artículo' : 'artículos'}",
+                            style: AppText.small.copyWith(
+                              color: AppColors.green700,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -841,19 +908,26 @@ class _CarritoPageState extends State<CarritoPage> {
               ],
             ),
           ),
-          // Botón vaciar carrito
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: IconButton(
-              onPressed: _isProcessing ? null : _showClearCartDialog,
-              icon: Icon(
-                Icons.delete_outline_rounded,
-                color: _isProcessing ? Colors.grey : Colors.red.shade400,
+          // Botón vaciar
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _isProcessing ? null : _showClearCartDialog,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  color: _isProcessing
+                      ? Colors.grey.shade400
+                      : Colors.red.shade400,
+                  size: 22,
+                ),
               ),
-              tooltip: 'Vaciar carrito',
             ),
           ),
         ],
@@ -862,16 +936,17 @@ class _CarritoPageState extends State<CarritoPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: SECCIÓN DE CHECKOUT
+  // WIDGET: SECCIÓN DE CHECKOUT (MODIFICADA PARA FOOTER FLOTANTE)
   // ═══════════════════════════════════════════════════════════
   Widget _buildCheckoutSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
         ),
         boxShadow: [
           BoxShadow(
@@ -881,103 +956,314 @@ class _CarritoPageState extends State<CarritoPage> {
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Indicador visual
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // Resumen de precios
-            _buildPriceRow("Subtotal", _subtotal, isSubtotal: true),
-            const SizedBox(height: 8),
-            _buildPriceRow("IVA incluido", _totalIva, isIva: true),
-            
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Divider(color: Colors.grey.shade200),
-            ),
-            
-            _buildPriceRow("Total", _total, isTotal: true),
-
-            const SizedBox(height: 20),
-
-            // Botón de checkout
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isProcessing ? null : _finalizarPedido,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.green500,
-                  foregroundColor: AppColors.white,
-                  disabledBackgroundColor: AppColors.green300,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
-                child: _isProcessing
-                    ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: AppColors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            "Procesando...",
-                            style: AppText.button.copyWith(fontSize: 16),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.lock_outline, size: 20),
-                          const SizedBox(width: 10),
-                          Text(
-                            "Finalizar Pedido",
-                            style: AppText.button.copyWith(fontSize: 17),
-                          ),
-                        ],
+            // ═══════════════════════════════════════════════════════
+            // HANDLE PARA CONTRAER/EXPANDIR
+            // ═══════════════════════════════════════════════════════
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isCheckoutCollapsed = !_isCheckoutCollapsed;
+                });
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  children: [
+                    // Barra handle
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Icono y texto
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedRotation(
+                          turns: _isCheckoutCollapsed ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Icon(
+                            Icons.keyboard_arrow_up_rounded,
+                            size: 20,
+                            color: AppColors.textDark.withOpacity(0.4),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        AutoText(
+                          _isCheckoutCollapsed ? "Expandir" : "Contraer",
+                          style: AppText.small.copyWith(
+                            color: AppColors.textDark.withOpacity(0.4),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
 
-            const SizedBox(height: 12),
-
-            // Info de seguridad
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.verified_user_outlined,
-                  size: 14,
-                  color: AppColors.textDark.withOpacity(0.4),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  "Pago seguro garantizado",
-                  style: AppText.small.copyWith(
-                    color: AppColors.textDark.withOpacity(0.4),
+            // ═══════════════════════════════════════════════════════
+            // CONTENIDO EXPANDIDO (Resumen de precios)
+            // ═══════════════════════════════════════════════════════
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 300),
+              crossFadeState: _isCheckoutCollapsed
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: Column(
+                children: [
+                  // Resumen de precios con tarjeta
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildPriceRow("Subtotal (sin IVA)", _subtotal),
+                        const SizedBox(height: 10),
+                        _buildPriceRow(
+                          "IVA incluido",
+                          _totalIva,
+                          isSecondary: true,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(
+                            color: Colors.grey.shade300,
+                            height: 1,
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            AutoText(
+                              "Total",
+                              style: AppText.subtitle.copyWith(fontSize: 17),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.green100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: AutoText(
+                                "${_total.toStringAsFixed(2)} €",
+                                style: AppText.title.copyWith(
+                                  fontSize: 20,
+                                  color: AppColors.green700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Botón de checkout expandido
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _isProcessing ? null : _finalizarPedido,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.green500,
+                        foregroundColor: AppColors.white,
+                        disabledBackgroundColor: AppColors.green300,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isProcessing
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                AutoText(
+                                  "Procesando...",
+                                  style: AppText.button.copyWith(fontSize: 16),
+                                ),
+                              ],
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.lock_outline,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                AutoText(
+                                  "Finalizar Pedido",
+                                  style: AppText.button.copyWith(fontSize: 17),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Info de seguridad
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.verified_user_outlined,
+                        size: 14,
+                        color: AppColors.textDark.withOpacity(0.4),
+                      ),
+                      const SizedBox(width: 6),
+                      AutoText(
+                        "Pago 100% seguro",
+                        style: AppText.small.copyWith(
+                          color: AppColors.textDark.withOpacity(0.4),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.local_shipping_outlined,
+                        size: 14,
+                        color: AppColors.textDark.withOpacity(0.4),
+                      ),
+                      const SizedBox(width: 6),
+                      AutoText(
+                        "Envío rápido",
+                        style: AppText.small.copyWith(
+                          color: AppColors.textDark.withOpacity(0.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              // ═══════════════════════════════════════════════════════
+              // CONTENIDO CONTRAÍDO (Solo botón con precio)
+              // ═══════════════════════════════════════════════════════
+              secondChild: SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: _isProcessing ? null : _finalizarPedido,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.green500,
+                    foregroundColor: AppColors.white,
+                    disabledBackgroundColor: AppColors.green300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  child: _isProcessing
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: AppColors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            AutoText(
+                              "Procesando...",
+                              style: AppText.button.copyWith(fontSize: 16),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Precio a la izquierda
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: AutoText(
+                                "${_total.toStringAsFixed(2)} €",
+                                style: AppText.button.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            // Texto y flecha a la derecha
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.lock_outline,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                AutoText(
+                                  "Finalizar",
+                                  style: AppText.button.copyWith(fontSize: 16),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -988,38 +1274,29 @@ class _CarritoPageState extends State<CarritoPage> {
   Widget _buildPriceRow(
     String label,
     double amount, {
-    bool isSubtotal = false,
-    bool isIva = false,
-    bool isTotal = false,
+    bool isSecondary = false,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
+        AutoText(
           label,
-          style: isTotal
-              ? AppText.subtitle.copyWith(fontSize: 18)
-              : AppText.body.copyWith(
-                  color: isIva
-                      ? AppColors.textDark.withOpacity(0.5)
-                      : AppColors.textDark.withOpacity(0.7),
-                  fontSize: isIva ? 13 : 14,
-                ),
+          style: AppText.body.copyWith(
+            color: isSecondary
+                ? AppColors.textDark.withOpacity(0.5)
+                : AppColors.textDark.withOpacity(0.7),
+            fontSize: isSecondary ? 13 : 14,
+          ),
         ),
-        Text(
+        AutoText(
           "${amount.toStringAsFixed(2)} €",
-          style: isTotal
-              ? AppText.title.copyWith(
-                  fontSize: 22,
-                  color: AppColors.green600,
-                )
-              : AppText.body.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: isIva
-                      ? AppColors.textDark.withOpacity(0.5)
-                      : AppColors.textDark,
-                  fontSize: isIva ? 13 : 15,
-                ),
+          style: AppText.body.copyWith(
+            fontWeight: FontWeight.w600,
+            color: isSecondary
+                ? AppColors.textDark.withOpacity(0.5)
+                : AppColors.textDark,
+            fontSize: isSecondary ? 13 : 14,
+          ),
         ),
       ],
     );
@@ -1032,42 +1309,81 @@ class _CarritoPageState extends State<CarritoPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          "¿Eliminar producto?",
-          style: AppText.subtitle,
-        ),
-        content: Text(
-          "¿Estás seguro de que quieres eliminar \"${item.name}\" del carrito?",
-          style: AppText.body.copyWith(
-            color: AppColors.textDark.withOpacity(0.7),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              "Cancelar",
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.remove_shopping_cart_outlined,
+                size: 32,
+                color: Colors.red.shade400,
+              ),
+            ),
+            const SizedBox(height: 16),
+            AutoText(
+              "¿Eliminar producto?",
+              style: AppText.subtitle.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            AutoText(
+              item.name,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: AppText.body.copyWith(
                 color: AppColors.textDark.withOpacity(0.6),
               ),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _removeItem(item);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade500,
-              foregroundColor: AppColors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.all(16),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: AutoText(
+                    "Cancelar",
+                    style: AppText.body.copyWith(
+                      color: AppColors.textDark.withOpacity(0.6),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            child: const Text("Eliminar"),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _removeItem(item);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade500,
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const AutoText("Eliminar"),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1078,42 +1394,80 @@ class _CarritoPageState extends State<CarritoPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          "¿Vaciar carrito?",
-          style: AppText.subtitle,
-        ),
-        content: Text(
-          "Se eliminarán todos los productos del carrito. Esta acción no se puede deshacer.",
-          style: AppText.body.copyWith(
-            color: AppColors.textDark.withOpacity(0.7),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              "Cancelar",
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.delete_forever_outlined,
+                size: 32,
+                color: Colors.red.shade400,
+              ),
+            ),
+            const SizedBox(height: 16),
+            AutoText(
+              "¿Vaciar carrito?",
+              style: AppText.subtitle.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            AutoText(
+              "Se eliminarán todos los productos.\nEsta acción no se puede deshacer.",
+              textAlign: TextAlign.center,
               style: AppText.body.copyWith(
                 color: AppColors.textDark.withOpacity(0.6),
+                height: 1.4,
               ),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _clearCart();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade500,
-              foregroundColor: AppColors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.all(16),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: AutoText(
+                    "Cancelar",
+                    style: AppText.body.copyWith(
+                      color: AppColors.textDark.withOpacity(0.6),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            child: const Text("Vaciar"),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _clearCart();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade500,
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const AutoText("Vaciar"),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1122,9 +1476,9 @@ class _CarritoPageState extends State<CarritoPage> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIDGET: TARJETA DE ITEM DEL CARRITO
+// WIDGET: TARJETA DE ITEM DEL CARRITO (REDISEÑADA)
 // ═══════════════════════════════════════════════════════════════════════════════
-class _CartItemCard extends StatelessWidget {
+class _CartItemCard extends StatefulWidget {
   final CartItem item;
   final int stockDisponible;
   final bool isProcessing;
@@ -1142,222 +1496,321 @@ class _CartItemCard extends StatelessWidget {
   });
 
   @override
+  State<_CartItemCard> createState() => _CartItemCardState();
+}
+
+class _CartItemCardState extends State<_CartItemCard> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final double itemTotal = item.priceTaxIncl * item.quantity;
-    final bool canIncrement = stockDisponible > 0;
+    final double itemTotal = widget.item.priceTaxIncl * widget.item.quantity;
+    final bool canIncrement = widget.stockDisponible > 0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ═══════════════════════════════════════════════
-            // IMAGEN
-            // ═══════════════════════════════════════════════
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 85,
-                height: 85,
-                color: AppColors.background,
-                child: item.image.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: item.image,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.green500,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                        errorWidget: (_, __, ___) => const Center(
-                          child: Icon(
-                            Icons.image_not_supported_outlined,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.image_not_supported_outlined,
-                          color: Colors.grey,
-                        ),
-                      ),
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-            ),
-
-            const SizedBox(width: 14),
-
-            // ═══════════════════════════════════════════════
-            // INFO
-            // ═══════════════════════════════════════════════
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Nombre y botón eliminar
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.body.copyWith(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: isProcessing ? null : onRemove,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 18,
-                            color: isProcessing 
-                                ? Colors.grey.shade300 
-                                : Colors.grey.shade400,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  // Precio unitario
-                  Text(
-                    "${item.priceTaxIncl.toStringAsFixed(2)} €/ud",
-                    style: AppText.small.copyWith(
-                      color: AppColors.textDark.withOpacity(0.5),
-                    ),
-                  ),
-
-                  // Indicador de stock
-                  if (stockDisponible > 0 && stockDisponible <= 5)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.inventory_2_outlined,
-                            size: 12,
-                            color: Colors.orange.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "Quedan $stockDisponible en stock",
-                            style: AppText.small.copyWith(
-                              color: Colors.orange.shade600,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  
-                  if (stockDisponible == 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            size: 12,
-                            color: Colors.red.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "Sin stock adicional",
-                            style: AppText.small.copyWith(
-                              color: Colors.red.shade600,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  const SizedBox(height: 10),
-
-                  // Controles de cantidad y total
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Selector de cantidad
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            _QuantityButton(
-                              icon: Icons.remove_rounded,
-                              onTap: onDecrement,
-                              isDecrease: true,
-                              isEnabled: !isProcessing,
-                            ),
-                            Container(
-                              constraints: const BoxConstraints(minWidth: 36),
-                              alignment: Alignment.center,
-                              child: isProcessing
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
+            ],
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ═══════════════════════════════════════════════
+                    // IMAGEN
+                    // ═══════════════════════════════════════════════
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            color: AppColors.background,
+                            child: widget.item.image.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: widget.item.image,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) => const Center(
                                       child: CircularProgressIndicator(
-                                        color: AppColors.green500,
+                                        color: AppColors.purple400,
                                         strokeWidth: 2,
                                       ),
-                                    )
-                                  : Text(
-                                      item.quantity.toString(),
-                                      style: AppText.body.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
+                                    ),
+                                    errorWidget: (_, __, ___) => const Center(
+                                      child: Icon(
+                                        Icons.image_not_supported_outlined,
+                                        color: Colors.grey,
+                                        size: 28,
                                       ),
                                     ),
-                            ),
-                            _QuantityButton(
-                              icon: Icons.add_rounded,
-                              onTap: onIncrement,
-                              isEnabled: canIncrement && !isProcessing,
-                            ),
-                          ],
+                                  )
+                                : const Center(
+                                    child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: Colors.grey,
+                                      size: 28,
+                                    ),
+                                  ),
+                          ),
                         ),
-                      ),
+                        // Badge de cantidad
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.purple600,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.purple600.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: AutoText(
+                              "x${widget.item.quantity}",
+                              style: AppText.small.copyWith(
+                                color: AppColors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
 
-                      // Total del item
-                      Text(
-                        "${itemTotal.toStringAsFixed(2)} €",
-                        style: AppText.subtitle.copyWith(
-                          fontSize: 16,
-                          color: AppColors.green600,
+                    const SizedBox(width: 14),
+
+                    // ═══════════════════════════════════════════════
+                    // INFO
+                    // ═══════════════════════════════════════════════
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Nombre
+                          AutoText(
+                            widget.item.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.body.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              height: 1.3,
+                            ),
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          // Precio unitario
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.green50,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: AutoText(
+                                  "${widget.item.priceTaxIncl.toStringAsFixed(2)} €/ud",
+                                  style: AppText.small.copyWith(
+                                    color: AppColors.green700,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // Indicador de stock
+                          if (widget.stockDisponible > 0 &&
+                              widget.stockDisponible <= 5)
+                            _buildStockIndicator(
+                              icon: Icons.inventory_2_outlined,
+                              text: "Quedan ${widget.stockDisponible} en stock",
+                              color: Colors.orange,
+                            ),
+
+                          if (widget.stockDisponible == 0)
+                            _buildStockIndicator(
+                              icon: Icons.warning_amber_rounded,
+                              text: "Sin stock adicional",
+                              color: Colors.red,
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // Botón eliminar
+                    GestureDetector(
+                      onTap: widget.isProcessing ? null : widget.onRemove,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: widget.isProcessing
+                              ? Colors.grey.shade300
+                              : Colors.red.shade400,
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              // ═══════════════════════════════════════════════
+              // BARRA INFERIOR: CONTROLES Y TOTAL
+              // ═══════════════════════════════════════════════
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 18,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Selector de cantidad
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          _QuantityButton(
+                            icon: Icons.remove_rounded,
+                            onTap: widget.onDecrement,
+                            isDecrease: true,
+                            isEnabled: !widget.isProcessing,
+                          ),
+                          Container(
+                            constraints: const BoxConstraints(minWidth: 40),
+                            alignment: Alignment.center,
+                            child: widget.isProcessing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.purple500,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : AutoText(
+                                    widget.item.quantity.toString(),
+                                    style: AppText.subtitle.copyWith(
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                          ),
+                          _QuantityButton(
+                            icon: Icons.add_rounded,
+                            onTap: widget.onIncrement,
+                            isEnabled: canIncrement && !widget.isProcessing,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Total del item
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        AutoText(
+                          "Total",
+                          style: AppText.small.copyWith(
+                            color: AppColors.textDark.withOpacity(0.5),
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        AutoText(
+                          "${itemTotal.toStringAsFixed(2)} €",
+                          style: AppText.subtitle.copyWith(
+                            fontSize: 17,
+                            color: AppColors.green600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStockIndicator({
+    required IconData icon,
+    required String text,
+    required MaterialColor color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color.shade600),
+          const SizedBox(width: 4),
+          AutoText(
+            text,
+            style: AppText.small.copyWith(
+              color: color.shade600,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1385,16 +1838,16 @@ class _QuantityButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: isEnabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          width: 36,
-          height: 36,
+          width: 38,
+          height: 38,
           alignment: Alignment.center,
           child: Icon(
             icon,
             size: 20,
             color: isEnabled
-                ? (isDecrease ? Colors.orange.shade600 : AppColors.green600)
+                ? (isDecrease ? AppColors.purple600 : AppColors.green600)
                 : Colors.grey.shade300,
           ),
         ),

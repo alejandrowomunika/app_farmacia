@@ -1,14 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:app_farmacia/pages/SplashAnimated.dart';
-import 'package:app_farmacia/pages/carrito.dart';
-import 'package:app_farmacia/pages/producto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 
+// Providers
+import 'providers/language_provider.dart';
+
+// Widgets
 import 'widgets/header.dart';
 import 'widgets/footer.dart';
+import 'widgets/auto_text.dart';
+
+// Pages
+import 'pages/SplashAnimated.dart';
+import 'pages/carrito.dart';
+import 'pages/producto.dart';
 import 'pages/tienda.dart';
 import 'pages/user.dart';
 import 'pages/chat.dart';
@@ -17,7 +25,8 @@ import 'pages/politica_privacidad.dart';
 import 'pages/politica_cookies.dart';
 import 'pages/politica_envios.dart';
 import 'pages/contacto.dart';
-
+import 'pages/scanner_page.dart'; // ← AÑADE ESTA LÍNEA
+// Theme
 import 'theme/app_theme.dart';
 
 // ═══════════════════════════════════════════════════════════
@@ -26,49 +35,70 @@ import 'theme/app_theme.dart';
 const String baseUrl = 'https://www.farmaciaguerrerozieza.com';
 const String apiKey = 'CGVBYEAKW3KG46ZY4JQWT8Q8433F6YBS';
 
-void main() {
-  runApp(const MainApp());
+// ═══════════════════════════════════════════════════════════
+// MAIN - PUNTO DE ENTRADA
+// ═══════════════════════════════════════════════════════════
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar el provider de idioma
+  final languageProvider = LanguageProvider();
+  await languageProvider.init();
+
+  runApp(
+    MultiProvider(
+      providers: [ChangeNotifierProvider.value(value: languageProvider)],
+      child: const MainApp(),
+    ),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════
-// APP ROOT
+// APP ROOT CON MULTI-IDIOMA GLOBAL
 // ═══════════════════════════════════════════════════════════
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Farmacia App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Mulish',
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.green500,
-          primary: AppColors.green500,
-          secondary: AppColors.purple500,
-        ),
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const ProductsScreen(),
-        '/tienda': (context) => const TiendaPage(),
-        '/chat': (context) => const Chat(),
-        '/user': (context) => const UserPage(),
-        '/splash': (context) => SplashAnimated(),
-        '/producto': (context) {
-          final args =
-              ModalRoute.of(context)!.settings.arguments
-                  as Map<String, dynamic>;
-          return ProductPage(id: args['id']);
-        },
-        "/carrito": (context) => const CarritoPage(),
-        '/aviso-legal': (context) => const AvisoLegal(),
-        '/politica-privacidad': (context) => const PoliticaPrivacidad(),
-        '/politica-cookies': (context) => const PoliticaCookies(),
-        '/politica-envios': (context) => const PoliticaEnvios(),
-        '/contacto': (context) => const Contacto(),
+    // Consumer escucha cambios del idioma y reconstruye toda la app
+    return Consumer<LanguageProvider>(
+      builder: (context, languageProvider, child) {
+        return MaterialApp(
+          // Key única basada en idioma para forzar reconstrucción completa
+          key: ValueKey('app_${languageProvider.currentLanguage}'),
+          title: 'Farmacia App',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            fontFamily: 'Mulish',
+            scaffoldBackgroundColor: AppColors.background,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.green500,
+              primary: AppColors.green500,
+              secondary: AppColors.purple500,
+            ),
+          ),
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const ProductsScreen(),
+            '/tienda': (context) => const TiendaPage(),
+            '/chat': (context) => const Chat(),
+            '/user': (context) => const UserPage(),
+            '/splash': (context) => SplashAnimated(),
+            '/producto': (context) {
+              final args =
+                  ModalRoute.of(context)!.settings.arguments
+                      as Map<String, dynamic>;
+              return ProductPage(id: args['id']);
+            },
+            "/carrito": (context) => const CarritoPage(),
+            '/aviso-legal': (context) => const AvisoLegal(),
+            '/politica-privacidad': (context) => const PoliticaPrivacidad(),
+            '/politica-cookies': (context) => const PoliticaCookies(),
+            '/politica-envios': (context) => const PoliticaEnvios(),
+            '/contacto': (context) => const Contacto(),
+          },
+        );
       },
     );
   }
@@ -195,6 +225,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
         Navigator.pushReplacementNamed(context, '/carrito');
         break;
     }
+
+    // ─────────────────────────────────────────────────────────
+    // ABRIR ESCÁNER DE CÓDIGO DE BARRAS
+    // ─────────────────────────────────────────────────────────
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // ABRIR ESCÁNER DE CÓDIGO DE BARRAS
+  // ─────────────────────────────────────────────────────────
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
   }
 
   // ─────────────────────────────────────────────────────────
@@ -372,7 +416,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true,
+
       body: SafeArea(
+        bottom: false,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -402,7 +449,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
 
             // ─────────────────────────────────────────────────
-            // PRODUCTOS DESTACADOS
+            // PRODUCTOS DESTACADOS (TRADUCIDO)
             // ─────────────────────────────────────────────────
             _buildProductsSection(
               title: "PRODUCTOS DESTACADOS",
@@ -422,7 +469,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
 
             // ─────────────────────────────────────────────────
-            // PRODUCTOS RECOMENDADOS
+            // PRODUCTOS RECOMENDADOS (TRADUCIDO)
             // ─────────────────────────────────────────────────
             _buildProductsSection(
               title: "PRODUCTOS RECOMENDADOS",
@@ -432,20 +479,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
               error: "",
             ),
 
-            // Espacio final
-            const SliverToBoxAdapter(child: SizedBox(height: 30)),
+            // ─────────────────────────────────────────────────
+            // ESPACIO FINAL PARA EL FOOTER FLOTANTE
+            // ─────────────────────────────────────────────────
+            const SliverToBoxAdapter(
+              child: SizedBox(
+                height: 100,
+              ), // ← Espacio para que el contenido no quede oculto
+            ),
           ],
         ),
       ),
+
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: CARRUSEL DE CATEGORÍAS
+  // WIDGET: CARRUSEL DE CATEGORÍAS (CON TRADUCCIÓN)
   // ═══════════════════════════════════════════════════════════
   Widget _buildCategoryCarousel() {
     return SizedBox(
@@ -481,7 +536,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
               const SizedBox(height: 6),
               SizedBox(
                 width: 80,
-                child: Text(
+                // ← TRADUCCIÓN AUTOMÁTICA DE CATEGORÍAS
+                child: AutoText(
                   info.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -500,7 +556,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: SLIDER PRINCIPAL
+  // WIDGET: SLIDER PRINCIPAL (CON TRADUCCIÓN)
   // ═══════════════════════════════════════════════════════════
   Widget _buildMainSlider() {
     return Padding(
@@ -535,7 +591,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         color: Colors.grey.shade400,
                       ),
                       const SizedBox(height: 12),
-                      Text(
+                      // ← TRADUCCIÓN
+                      AutoText(
                         "No hay imágenes disponibles",
                         style: AppText.body.copyWith(
                           color: Colors.grey.shade500,
@@ -551,7 +608,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: BANNER CHAT/ASISTENTE
+  // WIDGET: BANNER CHAT/ASISTENTE (CON TRADUCCIÓN)
   // ═══════════════════════════════════════════════════════════
   Widget _buildChatBanner() {
     return Padding(
@@ -606,17 +663,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    // ← TRADUCCIÓN
+                    AutoText(
                       '¿Necesitas ayuda?',
                       style: AppText.subtitle.copyWith(fontSize: 16),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    // ← TRADUCCIÓN
+                    AutoText(
                       'Consulta con nuestro asistente farmacéutico inteligente',
                       style: AppText.small.copyWith(
                         color: AppColors.textDark.withOpacity(0.6),
                         height: 1.3,
                       ),
+                      maxLines: 2,
                     ),
                     const SizedBox(height: 10),
 
@@ -640,7 +700,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             color: AppColors.purple600,
                           ),
                           const SizedBox(width: 6),
-                          Text(
+                          // ← TRADUCCIÓN
+                          AutoText(
                             'Próximamente',
                             style: AppText.small.copyWith(
                               color: AppColors.purple600,
@@ -676,7 +737,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: SECCIÓN DE PRODUCTOS
+  // WIDGET: SECCIÓN DE PRODUCTOS (CON TRADUCCIÓN)
   // ═══════════════════════════════════════════════════════════
   Widget _buildProductsSection({
     required String title,
@@ -712,7 +773,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 Icon(Icons.error_outline, color: Colors.red.shade600),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
+                  // ← TRADUCCIÓN DEL ERROR
+                  child: AutoText(
                     error,
                     style: AppText.body.copyWith(color: Colors.red.shade700),
                   ),
@@ -746,7 +808,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      // ← TÍTULO TRADUCIDO
+                      AutoText(
                         title,
                         style: AppText.subtitle.copyWith(
                           fontWeight: FontWeight.bold,
@@ -754,7 +817,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
+                      // ← SUBTÍTULO TRADUCIDO
+                      AutoText(
                         subtitle,
                         style: AppText.small.copyWith(
                           color: AppColors.textDark.withOpacity(0.5),
@@ -800,7 +864,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: TARJETA "VER TODOS"
+  // WIDGET: TARJETA "VER TODOS" (CON TRADUCCIÓN)
   // ═══════════════════════════════════════════════════════════
   Widget _buildViewAllCard() {
     return Padding(
@@ -837,7 +901,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Text(
+                // ← TRADUCCIÓN
+                AutoText(
                   'Ver todos',
                   style: AppText.subtitle.copyWith(
                     fontSize: 15,
@@ -845,7 +910,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                // ← TRADUCCIÓN
+                AutoText(
                   'los productos',
                   style: AppText.small.copyWith(
                     color: AppColors.textDark.withOpacity(0.5),
@@ -860,7 +926,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // WIDGET: SLIDER SECUNDARIO
+  // WIDGET: SLIDER SECUNDARIO (CON TRADUCCIÓN)
   // ═══════════════════════════════════════════════════════════
   Widget _buildSecondarySlider() {
     return Padding(
@@ -886,7 +952,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 )
               : slider2Images.isEmpty
               ? Center(
-                  child: Text(
+                  // ← TRADUCCIÓN
+                  child: AutoText(
                     "No hay imágenes disponibles",
                     style: AppText.body.copyWith(color: Colors.grey.shade500),
                   ),
@@ -1173,7 +1240,8 @@ class _FadeImageCarouselState extends State<FadeImageCarousel> {
       return Container(
         color: AppColors.background,
         child: Center(
-          child: Text(
+          // ← TRADUCCIÓN
+          child: AutoText(
             'No hay imágenes',
             style: AppText.body.copyWith(color: Colors.grey.shade500),
           ),
@@ -1272,7 +1340,8 @@ class _FadeImageCarouselSmallState extends State<FadeImageCarouselSmall> {
       return Container(
         color: AppColors.background,
         child: Center(
-          child: Text(
+          // ← TRADUCCIÓN
+          child: AutoText(
             'No hay imágenes',
             style: AppText.body.copyWith(color: Colors.grey.shade500),
           ),
@@ -1318,7 +1387,7 @@ class _FadeImageCarouselSmallState extends State<FadeImageCarouselSmall> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// WIDGET: TARJETA DE PRODUCTO
+// WIDGET: TARJETA DE PRODUCTO (CON TRADUCCIÓN)
 // ═══════════════════════════════════════════════════════════════════════════════
 class ProductCard extends StatelessWidget {
   final int id;
@@ -1403,7 +1472,7 @@ class ProductCard extends StatelessWidget {
               ),
             ),
 
-            // NOMBRE
+            // NOMBRE (Los nombres de productos generalmente no se traducen)
             Expanded(
               flex: 1,
               child: Padding(

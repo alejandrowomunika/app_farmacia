@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:translator/translator.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auto_text.dart';
+import '../providers/language_provider.dart';
+import '../widgets/auto_formatted_text.dart';
+import '../pages/scanner_page.dart';
 
 class PoliticaCookies extends StatefulWidget {
   const PoliticaCookies({super.key});
@@ -29,6 +35,13 @@ class _PoliticaCookiesState extends State<PoliticaCookies> {
         Navigator.pushReplacementNamed(context, '/carrito');
         break;
     }
+  }
+
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
   }
 
   @override
@@ -150,6 +163,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
@@ -205,7 +219,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          AutoText(
             "Cookies utilizadas",
             style: AppText.subtitle.copyWith(
               fontSize: 16,
@@ -238,7 +252,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
                   color: _getCookieTypeColor(cookie["tipo"]!),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(
+                child: AutoText(
                   cookie["tipo"]!,
                   style: AppText.small.copyWith(
                     color: AppColors.white,
@@ -264,7 +278,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
             children: [
               Icon(Icons.timer_outlined, size: 14, color: Colors.grey.shade500),
               const SizedBox(width: 4),
-              Text(
+              AutoText(
                 cookie["duracion"]!,
                 style: AppText.small.copyWith(
                   color: Colors.grey.shade600,
@@ -273,7 +287,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Text(
+                child: AutoText(
                   cookie["proposito"]!,
                   style: AppText.small.copyWith(
                     color: Colors.grey.shade600,
@@ -295,7 +309,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
       case "Preferencias":
         return AppColors.purple500;
       case "Análisis":
-        return Colors.green.shade600;
+        return Colors.orange.shade600;
       default:
         return Colors.grey;
     }
@@ -326,7 +340,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
               size: 20,
             ),
             const SizedBox(width: 6),
-            Text(
+            AutoText(
               "Volver",
               style: AppText.small.copyWith(
                 color: AppColors.purple600,
@@ -376,7 +390,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AutoText(
                   title,
                   style: AppText.title.copyWith(
                     color: AppColors.white,
@@ -384,7 +398,7 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                AutoText(
                   subtitle,
                   style: AppText.small.copyWith(
                     color: AppColors.white.withOpacity(0.9),
@@ -416,47 +430,17 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          AutoText(
             title,
             style: AppText.subtitle.copyWith(
               fontSize: 16,
-              color: Colors.green.shade700,
+              color: AppColors.green700,
             ),
           ),
           const SizedBox(height: 12),
-          _buildFormattedText(content),
+          // ← CAMBIO: Usar AutoFormattedText
+          AutoFormattedText(content: content),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFormattedText(String text) {
-    final List<InlineSpan> spans = [];
-    final RegExp boldPattern = RegExp(r'\*\*(.*?)\*\*');
-    int lastEnd = 0;
-
-    for (final match in boldPattern.allMatches(text)) {
-      if (match.start > lastEnd)
-        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      );
-      lastEnd = match.end;
-    }
-    if (lastEnd < text.length)
-      spans.add(TextSpan(text: text.substring(lastEnd)));
-
-    return RichText(
-      text: TextSpan(
-        style: AppText.body.copyWith(
-          color: AppColors.textDark.withOpacity(0.75),
-          height: 1.6,
-          fontSize: 14,
-        ),
-        children: spans,
       ),
     );
   }
@@ -466,18 +450,18 @@ Si tiene alguna duda sobre esta Política de Cookies, puede contactar con nosotr
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: AppColors.green50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.green.shade200),
+        border: Border.all(color: AppColors.green200),
       ),
       child: Row(
         children: [
-          Icon(Icons.update_rounded, color: Colors.green.shade600, size: 18),
+          Icon(Icons.update_rounded, color: AppColors.green600, size: 18),
           const SizedBox(width: 10),
-          Text(
+          AutoText(
             text,
             style: AppText.small.copyWith(
-              color: Colors.green.shade700,
+              color: AppColors.green700,
               fontWeight: FontWeight.w500,
             ),
           ),

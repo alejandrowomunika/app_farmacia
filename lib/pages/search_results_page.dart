@@ -8,6 +8,7 @@ import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
 import 'producto.dart';
+import '../pages/scanner_page.dart';
 
 class SearchResultsPage extends StatefulWidget {
   final String query;
@@ -65,7 +66,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       // PASO 1: Cargar todos los stocks disponibles
       // ════════════════════════════════════════════════════════
       Map<int, int> stockMap = {};
-      
+
       final stockUrl = Uri.parse(
         "$baseUrl/api/stock_availables?ws_key=$apiKey&output_format=JSON&display=[id_product,quantity]",
       );
@@ -75,11 +76,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       if (stockResponse.statusCode == 200) {
         final stockData = jsonDecode(stockResponse.body);
         final List stocks = stockData["stock_availables"] ?? [];
-        
+
         for (var stock in stocks) {
-          final productId = int.tryParse(stock["id_product"]?.toString() ?? "0") ?? 0;
-          final quantity = int.tryParse(stock["quantity"]?.toString() ?? "0") ?? 0;
-          
+          final productId =
+              int.tryParse(stock["id_product"]?.toString() ?? "0") ?? 0;
+          final quantity =
+              int.tryParse(stock["quantity"]?.toString() ?? "0") ?? 0;
+
           // Guardamos el stock (suma si hay múltiples entradas por producto)
           if (stockMap.containsKey(productId)) {
             stockMap[productId] = stockMap[productId]! + quantity;
@@ -121,9 +124,15 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           final taxGroupId = product["id_tax_rules_group"]?.toString() ?? "0";
           double taxRate = 0;
           switch (taxGroupId) {
-            case "1": taxRate = 4; break;
-            case "2": taxRate = 10; break;
-            case "3": taxRate = 21; break;
+            case "1":
+              taxRate = 4;
+              break;
+            case "2":
+              taxRate = 10;
+              break;
+            case "3":
+              taxRate = 21;
+              break;
           }
           final double priceWithTax = price * (1 + taxRate / 100);
 
@@ -256,6 +265,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     }
   }
 
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -280,10 +296,10 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               child: _isLoading
                   ? _buildLoadingState()
                   : _error
-                      ? _buildErrorState()
-                      : _filteredProducts.isEmpty
-                          ? _buildEmptyState()
-                          : _buildProductList(),
+                  ? _buildErrorState()
+                  : _filteredProducts.isEmpty
+                  ? _buildEmptyState()
+                  : _buildProductList(),
             ),
           ],
         ),
@@ -291,6 +307,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       bottomNavigationBar: AppFooter(
         currentIndex: selectedIndex,
         onTap: onFooterTap,
+        onScanTap: _openScanner,
       ),
     );
   }
@@ -505,10 +522,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              "Error de conexión",
-              style: AppText.subtitle,
-            ),
+            Text("Error de conexión", style: AppText.subtitle),
             const SizedBox(height: 8),
             Text(
               "No pudimos cargar los productos",
@@ -560,10 +574,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              "Sin resultados",
-              style: AppText.subtitle,
-            ),
+            Text("Sin resultados", style: AppText.subtitle),
             const SizedBox(height: 8),
             Text(
               _searchText.isEmpty
@@ -621,28 +632,20 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                 mainAxisSpacing: 12,
                 childAspectRatio: 0.72,
               ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final product = visibleProducts[index];
-                  return _ProductCard(
-                    id: product["id"].toString(),
-                    name: product["name"] ?? "",
-                    price: product["price"].toString(),
-                    image: product["image"] ?? "",
-                    isAvailable: product["isAvailable"] ?? true,
-                  );
-                },
-                childCount: visibleProducts.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final product = visibleProducts[index];
+                return _ProductCard(
+                  id: product["id"].toString(),
+                  name: product["name"] ?? "",
+                  price: product["price"].toString(),
+                  image: product["image"] ?? "",
+                  isAvailable: product["isAvailable"] ?? true,
+                );
+              }, childCount: visibleProducts.length),
             ),
           ),
-          if (hasMore)
-            SliverToBoxAdapter(
-              child: _buildLoadMoreButton(),
-            ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 20),
-          ),
+          if (hasMore) SliverToBoxAdapter(child: _buildLoadMoreButton()),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
       ),
     );
@@ -661,10 +664,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.green200,
-            width: 1.5,
-          ),
+          border: Border.all(color: AppColors.green200, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -678,7 +678,10 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           child: InkWell(
             onTap: () {
               setState(() {
-                _visibleCount = min(_visibleCount + _loadMoreStep, _filteredProducts.length);
+                _visibleCount = min(
+                  _visibleCount + _loadMoreStep,
+                  _filteredProducts.length,
+                );
               });
             },
             borderRadius: BorderRadius.circular(14),
@@ -831,7 +834,7 @@ class _ProductCardState extends State<_ProductCard> {
                                 ),
                               ),
                       ),
-                      
+
                       // ═══════════════════════════════════════════════
                       // BADGE "AGOTADO"
                       // ═══════════════════════════════════════════════
@@ -881,7 +884,7 @@ class _ProductCardState extends State<_ProductCard> {
                   ),
                 ),
               ),
-              
+
               // ═══════════════════════════════════════════════
               // INFORMACIÓN DEL PRODUCTO
               // ═══════════════════════════════════════════════
@@ -901,8 +904,8 @@ class _ProductCardState extends State<_ProductCard> {
                             fontWeight: FontWeight.w600,
                             height: 1.2,
                             // Atenuar texto si está agotado
-                            color: widget.isAvailable 
-                                ? AppColors.textDark 
+                            color: widget.isAvailable
+                                ? AppColors.textDark
                                 : Colors.grey.shade500,
                           ),
                         ),
@@ -916,8 +919,8 @@ class _ProductCardState extends State<_ProductCard> {
                               style: AppText.body.copyWith(
                                 fontSize: 14,
                                 // Color condicional según disponibilidad
-                                color: widget.isAvailable 
-                                    ? AppColors.green600 
+                                color: widget.isAvailable
+                                    ? AppColors.green600
                                     : Colors.grey.shade500,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -926,8 +929,8 @@ class _ProductCardState extends State<_ProductCard> {
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 // Color de fondo condicional
-                                color: widget.isAvailable 
-                                    ? AppColors.green50 
+                                color: widget.isAvailable
+                                    ? AppColors.green50
                                     : Colors.grey.shade200,
                                 borderRadius: BorderRadius.circular(6),
                               ),
@@ -935,8 +938,8 @@ class _ProductCardState extends State<_ProductCard> {
                                 Icons.arrow_forward_rounded,
                                 size: 14,
                                 // Color del icono condicional
-                                color: widget.isAvailable 
-                                    ? AppColors.green600 
+                                color: widget.isAvailable
+                                    ? AppColors.green600
                                     : Colors.grey.shade400,
                               ),
                             ),

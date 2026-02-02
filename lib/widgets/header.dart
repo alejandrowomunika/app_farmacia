@@ -38,14 +38,8 @@ class AppHeader extends StatelessWidget {
           GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/'),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: 32,
-                maxWidth: 160,
-              ),
-              child: Image.asset(
-                "assets/logcompleto.png",
-                fit: BoxFit.contain,
-              ),
+              constraints: const BoxConstraints(maxHeight: 32, maxWidth: 160),
+              child: Image.asset("assets/logcompleto.png", fit: BoxFit.contain),
             ),
           ),
 
@@ -77,13 +71,16 @@ class AppHeader extends StatelessWidget {
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(-1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
+            position:
+                Tween<Offset>(
+                  begin: const Offset(-1, 0),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           );
         },
@@ -107,13 +104,13 @@ class AppHeader extends StatelessWidget {
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           );
         },
@@ -129,10 +126,7 @@ class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _HeaderIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _HeaderIconButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -140,14 +134,8 @@ class _HeaderIconButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          icon,
-          color: AppColors.purple600,
-          size: 22,
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: AppColors.purple600, size: 22),
       ),
     );
   }

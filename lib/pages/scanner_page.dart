@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
-
+import '../widgets/auto_text.dart';
 import '../theme/app_theme.dart';
 import '../data/cart.dart';
 import 'producto.dart';
@@ -19,7 +19,7 @@ class _ScannerPageState extends State<ScannerPage> {
   // CONTROLADORES Y ESTADO
   // ═══════════════════════════════════════════════════════════
   MobileScannerController? _scannerController;
-  
+
   bool _isScanning = true;
   bool _isSearching = false;
   bool _isFlashOn = false;
@@ -58,13 +58,13 @@ class _ScannerPageState extends State<ScannerPage> {
     if (!_isScanning || _isSearching) return;
 
     final List<Barcode> barcodes = capture.barcodes;
-    
+
     if (barcodes.isEmpty) return;
 
     final String? code = barcodes.first.rawValue;
-    
+
     if (code == null || code.isEmpty) return;
-    
+
     // Evitar escanear el mismo código repetidamente
     if (code == _lastScannedCode) return;
 
@@ -101,7 +101,7 @@ class _ScannerPageState extends State<ScannerPage> {
         if (products.isNotEmpty) {
           // Producto encontrado
           final product = products.first;
-          
+
           setState(() {
             _foundProduct = _parseProduct(product);
             _isSearching = false;
@@ -139,7 +139,7 @@ class _ScannerPageState extends State<ScannerPage> {
   // ═══════════════════════════════════════════════════════════
   Map<String, dynamic> _parseProduct(Map<String, dynamic> product) {
     final int id = int.tryParse(product["id"].toString()) ?? 0;
-    
+
     // Nombre
     String name = "Sin nombre";
     final rawName = product["name"];
@@ -161,9 +161,15 @@ class _ScannerPageState extends State<ScannerPage> {
     final taxGroupId = product["id_tax_rules_group"]?.toString() ?? "0";
     double taxRate = 0;
     switch (taxGroupId) {
-      case "1": taxRate = 4; break;
-      case "2": taxRate = 10; break;
-      case "3": taxRate = 21; break;
+      case "1":
+        taxRate = 4;
+        break;
+      case "2":
+        taxRate = 10;
+        break;
+      case "3":
+        taxRate = 21;
+        break;
     }
     final double priceWithTax = price * (1 + taxRate / 100);
 
@@ -260,18 +266,16 @@ class _ScannerPageState extends State<ScannerPage> {
 
             const SizedBox(height: 20),
 
-            Text(
+            AutoText(
               "Producto no encontrado",
               style: AppText.title.copyWith(fontSize: 20),
             ),
 
             const SizedBox(height: 8),
 
-            Text(
+            AutoText(
               "No encontramos ningún producto con el código:",
-              style: AppText.body.copyWith(
-                color: Colors.grey.shade600,
-              ),
+              style: AppText.body.copyWith(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
 
@@ -283,7 +287,7 @@ class _ScannerPageState extends State<ScannerPage> {
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
+              child: AutoText(
                 ean,
                 style: AppText.body.copyWith(
                   fontWeight: FontWeight.bold,
@@ -311,7 +315,7 @@ class _ScannerPageState extends State<ScannerPage> {
                   ),
                 ),
                 icon: const Icon(Icons.qr_code_scanner_rounded),
-                label: const Text("Escanear otro producto"),
+                label: const AutoText("Escanear otro producto"),
               ),
             ),
 
@@ -319,7 +323,7 @@ class _ScannerPageState extends State<ScannerPage> {
 
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
+              child: AutoText(
                 "Cerrar",
                 style: AppText.body.copyWith(color: Colors.grey.shade600),
               ),
@@ -364,14 +368,14 @@ class _ScannerPageState extends State<ScannerPage> {
 
             const SizedBox(height: 20),
 
-            Text(
+            AutoText(
               "Error de conexión",
               style: AppText.title.copyWith(fontSize: 20),
             ),
 
             const SizedBox(height: 8),
 
-            Text(
+            AutoText(
               "No pudimos conectar con el servidor. Verifica tu conexión a internet.",
               style: AppText.body.copyWith(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
@@ -395,7 +399,7 @@ class _ScannerPageState extends State<ScannerPage> {
                   ),
                 ),
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text("Intentar de nuevo"),
+                label: const AutoText("Intentar de nuevo"),
               ),
             ),
           ],
@@ -452,7 +456,7 @@ class _ScannerPageState extends State<ScannerPage> {
             const Icon(Icons.check_circle_rounded, color: AppColors.white),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
+              child: AutoText(
                 "Añadido al carrito",
                 style: AppText.body.copyWith(
                   color: AppColors.white,
@@ -466,12 +470,15 @@ class _ScannerPageState extends State<ScannerPage> {
                 Navigator.pushNamed(context, '/carrito');
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.white,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
+                child: AutoText(
                   "Ver carrito",
                   style: AppText.small.copyWith(
                     color: AppColors.green600,
@@ -484,9 +491,7 @@ class _ScannerPageState extends State<ScannerPage> {
         ),
         backgroundColor: AppColors.green600,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
       ),
@@ -502,9 +507,7 @@ class _ScannerPageState extends State<ScannerPage> {
     Navigator.pop(context); // Cerrar modal
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ProductPage(id: productId),
-      ),
+      MaterialPageRoute(builder: (_) => ProductPage(id: productId)),
     );
   }
 
@@ -593,7 +596,7 @@ class _ScannerPageState extends State<ScannerPage> {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Text(
+                  AutoText(
                     "Escanear producto",
                     style: AppText.body.copyWith(
                       color: AppColors.white,
@@ -610,8 +613,8 @@ class _ScannerPageState extends State<ScannerPage> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _isFlashOn 
-                      ? AppColors.yellow500 
+                  color: _isFlashOn
+                      ? AppColors.yellow500
                       : Colors.black.withOpacity(0.5),
                   shape: BoxShape.circle,
                 ),
@@ -649,9 +652,7 @@ class _ScannerPageState extends State<ScannerPage> {
               child: Stack(
                 children: [
                   Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.transparent,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.transparent),
                     child: Align(
                       alignment: Alignment.center,
                       child: Container(
@@ -678,8 +679,8 @@ class _ScannerPageState extends State<ScannerPage> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: _isSearching 
-                        ? AppColors.yellow500 
+                    color: _isSearching
+                        ? AppColors.yellow500
                         : AppColors.green500,
                     width: 3,
                   ),
@@ -698,9 +699,9 @@ class _ScannerPageState extends State<ScannerPage> {
               top: scanAreaTop + scanAreaSize + 24,
               left: 0,
               right: 0,
-              child: Text(
-                _isSearching 
-                    ? "Buscando producto..." 
+              child: AutoText(
+                _isSearching
+                    ? "Buscando producto..."
                     : "Centra el código de barras en el recuadro",
                 style: AppText.body.copyWith(
                   color: AppColors.white,
@@ -743,7 +744,12 @@ class _ScannerPageState extends State<ScannerPage> {
       Positioned(
         bottom: 0,
         right: 0,
-        child: _buildCorner(cornerSize, cornerWidth, color, isBottomRight: true),
+        child: _buildCorner(
+          cornerSize,
+          cornerWidth,
+          color,
+          isBottomRight: true,
+        ),
       ),
     ];
   }
@@ -792,7 +798,7 @@ class _ScannerPageState extends State<ScannerPage> {
               strokeWidth: 3,
             ),
             const SizedBox(height: 16),
-            Text(
+            AutoText(
               "Buscando producto...",
               style: AppText.body.copyWith(
                 color: AppColors.white,
@@ -832,7 +838,7 @@ class _ScannerPageState extends State<ScannerPage> {
                     ),
                     elevation: 0,
                   ),
-                  child: Text(
+                  child: AutoText(
                     "Cancelar",
                     style: AppText.button.copyWith(fontSize: 16),
                   ),
@@ -974,14 +980,14 @@ class _ProductFoundModal extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AutoText(
                         "¡Producto encontrado!",
                         style: AppText.subtitle.copyWith(
                           color: AppColors.green700,
                         ),
                       ),
                       if (ean.isNotEmpty)
-                        Text(
+                        AutoText(
                           "EAN: $ean",
                           style: AppText.small.copyWith(
                             color: AppColors.green600,
@@ -1028,13 +1034,13 @@ class _ProductFoundModal extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                
+
                 // Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AutoText(
                         name,
                         style: AppText.body.copyWith(
                           fontWeight: FontWeight.w600,
@@ -1045,14 +1051,14 @@ class _ProductFoundModal extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      Text(
+                      AutoText(
                         "${priceWithTax.toStringAsFixed(2)} €",
                         style: AppText.title.copyWith(
                           color: AppColors.green600,
                           fontSize: 22,
                         ),
                       ),
-                      Text(
+                      AutoText(
                         "IVA incluido",
                         style: AppText.small.copyWith(
                           color: Colors.grey.shade500,
@@ -1086,7 +1092,7 @@ class _ProductFoundModal extends StatelessWidget {
                       ),
                     ),
                     icon: const Icon(Icons.add_shopping_cart_rounded),
-                    label: Text(
+                    label: AutoText(
                       "Añadir al carrito",
                       style: AppText.button.copyWith(fontSize: 16),
                     ),
@@ -1110,7 +1116,7 @@ class _ProductFoundModal extends StatelessWidget {
                           ),
                         ),
                         icon: const Icon(Icons.visibility_rounded, size: 20),
-                        label: const Text("Ver producto"),
+                        label: const AutoText("Ver producto"),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1125,8 +1131,11 @@ class _ProductFoundModal extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                        label: const Text("Escanear otro"),
+                        icon: const Icon(
+                          Icons.qr_code_scanner_rounded,
+                          size: 20,
+                        ),
+                        label: const AutoText("Escanear otro"),
                       ),
                     ),
                   ],

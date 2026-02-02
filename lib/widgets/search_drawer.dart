@@ -9,6 +9,9 @@ import '../pages/search_results_page.dart';
 import '../pages/category.dart';
 import '../pages/scanner_page.dart';
 
+import '../widgets/auto_text.dart';
+import '../widgets/translated_text_field.dart';
+
 class SearchDrawer extends StatefulWidget {
   const SearchDrawer({super.key});
 
@@ -463,8 +466,11 @@ class _SearchDrawerState extends State<SearchDrawer> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Buscar", style: AppText.title.copyWith(fontSize: 18)),
-                  Text(
+                  AutoText(
+                    "Buscar",
+                    style: AppText.title.copyWith(fontSize: 18),
+                  ),
+                  AutoText(
                     "Categorías y productos",
                     style: AppText.small.copyWith(color: Colors.grey.shade500),
                   ),
@@ -525,28 +531,29 @@ class _SearchDrawerState extends State<SearchDrawer> {
             // CAMPO DE BÚSQUEDA
             // ═══════════════════════════════════════
             Expanded(
-              child: TextField(
+              child: TranslatedTextField(
                 controller: _searchController,
                 focusNode: _searchFocusNode,
+                hintText:
+                    'Buscar categorías o productos...', // ← Se traduce automáticamente
                 onChanged: _filterAll,
                 onSubmitted: (_) => _goToSearchResults(),
                 style: AppText.body.copyWith(fontSize: 15),
                 textInputAction: TextInputAction.search,
+                suffixIcon: _searchText.isNotEmpty
+                    ? IconButton(
+                        onPressed: _clearSearch,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: AppColors.textDark.withOpacity(0.4),
+                        ),
+                      )
+                    : null,
                 decoration: InputDecoration(
-                  hintText: 'Buscar categorías o productos...',
                   hintStyle: AppText.body.copyWith(
                     color: AppColors.textDark.withOpacity(0.4),
                     fontSize: 15,
                   ),
-                  suffixIcon: _searchText.isNotEmpty
-                      ? IconButton(
-                          onPressed: _clearSearch,
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: AppColors.textDark.withOpacity(0.4),
-                          ),
-                        )
-                      : null,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -580,7 +587,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
               strokeWidth: 3,
             ),
             const SizedBox(height: 16),
-            Text(
+            AutoText(
               "Cargando...",
               style: AppText.body.copyWith(
                 color: AppColors.textDark.withOpacity(0.6),
@@ -663,7 +670,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
             child: Icon(icon, size: 16, color: color),
           ),
           const SizedBox(width: 8),
-          Text(
+          AutoText(
             title,
             style: AppText.body.copyWith(
               fontWeight: FontWeight.w700,
@@ -678,7 +685,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(
+            child: AutoText(
               "$count",
               style: AppText.small.copyWith(
                 color: color,
@@ -715,9 +722,9 @@ class _SearchDrawerState extends State<SearchDrawer> {
               ),
             ),
             const SizedBox(height: 20),
-            Text("Busca en la tienda", style: AppText.subtitle),
+            AutoText("Busca en la tienda", style: AppText.subtitle),
             const SizedBox(height: 8),
-            Text(
+            AutoText(
               "Escribe al menos 2 caracteres\npara buscar categorías y productos",
               textAlign: TextAlign.center,
               style: AppText.small.copyWith(
@@ -754,9 +761,9 @@ class _SearchDrawerState extends State<SearchDrawer> {
               ),
             ),
             const SizedBox(height: 20),
-            Text("Sin resultados", style: AppText.subtitle),
+            AutoText("Sin resultados", style: AppText.subtitle),
             const SizedBox(height: 8),
-            Text(
+            AutoText(
               "No encontramos categorías ni productos\ncon \"$_searchText\"",
               textAlign: TextAlign.center,
               style: AppText.small.copyWith(
@@ -779,7 +786,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text("Nueva búsqueda"),
+              label: const AutoText("Nueva búsqueda"),
             ),
           ],
         ),
@@ -842,7 +849,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AutoText(
                         name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -1003,7 +1010,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AutoText(
                         name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -1017,7 +1024,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
+                      AutoText(
                         "${price.toStringAsFixed(2)} €",
                         style: AppText.body.copyWith(
                           color: isAvailable
@@ -1044,7 +1051,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: Colors.red.shade200, width: 1),
                     ),
-                    child: Text(
+                    child: AutoText(
                       "Agotado",
                       style: AppText.small.copyWith(
                         color: Colors.red.shade600,
@@ -1109,7 +1116,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                     color: AppColors.green600,
                   ),
                   const SizedBox(width: 8),
-                  Text(
+                  AutoText(
                     "Ver más productos",
                     style: AppText.body.copyWith(
                       color: AppColors.green600,
@@ -1126,7 +1133,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                       color: AppColors.green100,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
+                    child: AutoText(
                       "+$remaining",
                       style: AppText.small.copyWith(
                         color: AppColors.green600,
@@ -1179,7 +1186,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              AutoText(
                 "Ver todos los resultados",
                 style: AppText.button.copyWith(fontSize: 15),
               ),
@@ -1190,7 +1197,7 @@ class _SearchDrawerState extends State<SearchDrawer> {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
+                child: AutoText(
                   "$totalResults",
                   style: AppText.small.copyWith(
                     color: AppColors.white,

@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:translator/translator.dart';
 import '../widgets/header.dart';
 import '../widgets/footer.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auto_text.dart';
+import '../providers/language_provider.dart';
+import '../widgets/auto_formatted_text.dart';
+import '../pages/scanner_page.dart';
 
 class AvisoLegal extends StatefulWidget {
   const AvisoLegal({super.key});
@@ -29,6 +35,13 @@ class _AvisoLegalState extends State<AvisoLegal> {
         Navigator.pushReplacementNamed(context, '/carrito');
         break;
     }
+  }
+
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
   }
 
   @override
@@ -59,7 +72,7 @@ class _AvisoLegalState extends State<AvisoLegal> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Contenido
+                      // Contenido - TODO TRADUCIDO
                       _buildSection(
                         title: "1. Datos identificativos",
                         content: """
@@ -185,7 +198,8 @@ Para cualquier duda, consulta o sugerencia sobre este Aviso Legal, puede ponerse
               size: 20,
             ),
             const SizedBox(width: 6),
-            Text(
+            // ← TRADUCIDO
+            AutoText(
               "Volver",
               style: AppText.small.copyWith(
                 color: AppColors.purple600,
@@ -235,7 +249,8 @@ Para cualquier duda, consulta o sugerencia sobre este Aviso Legal, puede ponerse
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                // ← TRADUCIDO
+                AutoText(
                   title,
                   style: AppText.title.copyWith(
                     color: AppColors.white,
@@ -243,7 +258,8 @@ Para cualquier duda, consulta o sugerencia sobre este Aviso Legal, puede ponerse
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                // ← TRADUCIDO
+                AutoText(
                   subtitle,
                   style: AppText.small.copyWith(
                     color: AppColors.white.withOpacity(0.9),
@@ -275,7 +291,8 @@ Para cualquier duda, consulta o sugerencia sobre este Aviso Legal, puede ponerse
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          // ← TÍTULO TRADUCIDO
+          AutoText(
             title,
             style: AppText.subtitle.copyWith(
               fontSize: 16,
@@ -283,42 +300,9 @@ Para cualquier duda, consulta o sugerencia sobre este Aviso Legal, puede ponerse
             ),
           ),
           const SizedBox(height: 12),
-          _buildFormattedText(content),
+          // ← CONTENIDO TRADUCIDO CON FORMATO
+          AutoFormattedText(content: content),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFormattedText(String text) {
-    final List<InlineSpan> spans = [];
-    final RegExp boldPattern = RegExp(r'\*\*(.*?)\*\*');
-    int lastEnd = 0;
-
-    for (final match in boldPattern.allMatches(text)) {
-      if (match.start > lastEnd) {
-        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
-      }
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      );
-      lastEnd = match.end;
-    }
-
-    if (lastEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastEnd)));
-    }
-
-    return RichText(
-      text: TextSpan(
-        style: AppText.body.copyWith(
-          color: AppColors.textDark.withOpacity(0.75),
-          height: 1.6,
-          fontSize: 14,
-        ),
-        children: spans,
       ),
     );
   }
@@ -336,7 +320,8 @@ Para cualquier duda, consulta o sugerencia sobre este Aviso Legal, puede ponerse
         children: [
           Icon(Icons.update_rounded, color: AppColors.green600, size: 18),
           const SizedBox(width: 10),
-          Text(
+          // ← TRADUCIDO
+          AutoText(
             text,
             style: AppText.small.copyWith(
               color: AppColors.green700,
