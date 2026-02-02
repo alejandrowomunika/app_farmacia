@@ -369,14 +369,14 @@ class _ScannerPageState extends State<ScannerPage> {
             const SizedBox(height: 20),
 
             AutoText(
-              "Error de conexión",
+              "Producto no encontrado",
               style: AppText.title.copyWith(fontSize: 20),
             ),
 
             const SizedBox(height: 8),
 
             AutoText(
-              "No pudimos conectar con el servidor. Verifica tu conexión a internet.",
+              "No pudimos encontrar el producto con ese código EAN.",
               style: AppText.body.copyWith(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),

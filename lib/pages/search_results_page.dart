@@ -522,7 +522,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               ),
             ),
             const SizedBox(height: 20),
-            Text("Error de conexión", style: AppText.subtitle),
+            Text("Producto No Encontrado", style: AppText.subtitle),
             const SizedBox(height: 8),
             Text(
               "No pudimos cargar los productos",
